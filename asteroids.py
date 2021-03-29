@@ -9,6 +9,8 @@ if not pygame.mixer: print('Warning, sound disabled.')
 
 
 def load_image(name, colorkey=None):
+    if not os.path.dirname(os.getcwd()) == "asteroids":
+        os.chdir(os.path.join('/', 'home', 'dan', 'python_scripts', 'asteroids', ''))
     fullname = os.path.join('data', name)
     try:
         image = pygame.image.load(fullname).convert()
@@ -106,15 +108,25 @@ class Player(pygame.sprite.Sprite):
 class Asteroid(pygame.sprite.Sprite):
     def __init__(self, x_speed, y_speed):
         pygame.sprite.Sprite.__init__(self)
-        self.image, self.rect = load_image('asteroid.png', -1)
+        image_number = random.randint(1,2)
+        self.image, self.rect = load_image(f'asteroid-{image_number}.png', -1)
         self.movepos = [x_speed,y_speed]
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
         self.rect.center = (random.randint(0, self.area.width),
                             random.randint(0, self.area.height))
+        self.original = self.image
+        self.spin = 0
+        self.spin_amount = 0
+        while self.spin_amount == 0:
+            self.spin_amount = random.randint(-1,1)
 
         
     def update(self):
+        self.fly()
+        self.spinner()
+
+    def fly(self):
         newpos = self.rect.move(self.movepos)
         container_area = self.area.inflate(self.rect.width * 2, self.rect.height * 2)
         if not container_area.contains(newpos):
@@ -136,6 +148,18 @@ class Asteroid(pygame.sprite.Sprite):
                 newpos.x = 0 - (self.rect.width / 2)
                 
         self.rect = newpos
+        
+    def spinner(self):
+        # apply some spin
+        center = self.rect.center
+        self.spin += self.spin_amount
+        if self.spin >= 360:
+            self.spin = 0
+            self.image = self.original
+        else:
+            self.image = pygame.transform.rotate(self.original, self.spin)
+        self.rect = self.image.get_rect(center=center)
+        
 
 class Shot(pygame.sprite.Sprite):
     pass
@@ -153,26 +177,39 @@ def main():
     clock = pygame.time.Clock()
     fps = 60
     bg_color = (250, 250, 250)
+    font_color = (20, 20, 20)
+    if not os.path.basename(os.getcwd()) == "asteroids":
+        os.chdir(os.path.join('/', 'home', 'dan', 'python_scripts', 'asteroids', ''))
     font = pygame.font.Font(os.path.join('data','Nunito-Regular.ttf'), 36)
     random.seed()
     
     background = pygame.Surface(screen.get_size()).convert()
     player = Player()
-    asteroids  = pygame.sprite.RenderPlain()
+    asteroids  = pygame.sprite.RenderUpdates()
     number_of_asteroids = random.randint(1, 10)
     while number_of_asteroids > 0:
-        asteroids.add(Asteroid(random.randint(-4,4), random.randint(-4,4)))
+        x_speed = 0
+        y_speed = 0
+        while x_speed == 0:
+            x_speed = random.randint(-4,4)
+        while y_speed == 0:
+            y_speed = random.randint(-4,4)
+        asteroids.add(Asteroid(x_speed, y_speed))
         number_of_asteroids -= 1
         
     score = 0
     score_tracker = 0
-    score_text = font.render("Score: " + str(score), True, (0, 0, 0))
+    score_text = font.render("Score: " + str(score), True, font_color)
     score_text_rect = score_text.get_rect(topleft=(10, 10))
 
+    background.fill(bg_color)
+    screen.blit(background, (0,0))
+    pygame.display.update()
+    
     while True:
         clock.tick(fps)
-        background.fill
-        
+
+        # handle input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return
@@ -194,12 +231,20 @@ def main():
                     event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT):
                     player.stop()
 
-        background.fill(bg_color)
-        background.blit(score_text, score_text_rect)
-        asteroids.update()
-        screen.blit(background, (0, 0))
-        asteroids.draw(screen)
-        pygame.display.update()
+        # erase asteroids and scoreboard
+        screen.blit(background, score_text_rect, score_text_rect)
+        for sprite in asteroids.sprites():
+            screen.blit(background, sprite.rect, sprite.rect)
 
+        # update asteroids and scoreboard
+        asteroids.update()
+
+        # draw everything
+        dirty_rects = asteroids.draw(screen)
+        dirty_rects.append(screen.blit(score_text, score_text_rect))
+
+        # show updates
+        pygame.display.update(dirty_rects)
+        
 if __name__ == '__main__':
     main()
