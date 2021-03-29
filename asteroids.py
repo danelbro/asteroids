@@ -50,34 +50,74 @@ class Player(pygame.sprite.Sprite):
         self.image, self.rect = load_image('player.png', -1)
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
-        self.speed = 5
-        self.friction = 0.2
+        self.speed = 6
+        self.turn_speed = 20
+        self.turn = 0
+        self.friction = 0.15
         self.state = 'still'
+        self.original = self.image
         self.reinit()
 
     def reinit(self):
         self.state = 'still'
         self.movepos = [0,0]
         self.rect.center = self.area.center
+        self.image = self.original
+        self.turn = 0
 
     def update(self):
         if self.state == 'decelerating':
             self.decelerate()
         newpos = self.rect.move(self.movepos)
-        if self.area.contains(newpos):
-            self.rect = newpos
+        container_area = self.area.inflate(self.rect.width * 2, self.rect.height * 2)
+        if not container_area.contains(newpos):
+            tl = not container_area.collidepoint(newpos.topleft)
+            tr = not container_area.collidepoint(newpos.topright)
+            bl = not container_area.collidepoint(newpos.bottomleft)
+            br = not container_area.collidepoint(newpos.bottomright)
+
+            if (tl and tr):
+                newpos.y = self.area.height
+                                
+            elif (bl and br):
+                newpos.y = 0 - (self.rect.height / 2)
+                
+            elif (tl and bl):
+                newpos.x = self.area.width
+                
+            elif (tr and br):
+                newpos.x = 0 - (self.rect.width / 2)
+                
+        self.rect = newpos
 
     def accelerate(self):
         self.state = 'moving'
+        if self.turn < 0:
+            angle = (self.turn + 360) * (math.pi / 180)
+        else:
+            angle = self.turn * (math.pi / 180)
+        z = self.speed
+        dx, dy = (z * math.cos(angle), z * math.sin(angle))
+        self.movepos = [dx, -dy]
 
     def brake(self):
         self.state = 'braking'
 
     def turnright(self):
-        pass
+        center = self.rect.center
+        if self.turn - self.turn_speed <= -360:
+            self.turn += 360
+        self.turn -= self.turn_speed
+        self.image = pygame.transform.rotate(self.original, self.turn)
+        self.rect = self.image.get_rect(center=center)
 
     def turnleft(self):
-        pass
+        center = self.rect.center
+        if self.turn + self.turn_speed >= 360:
+            self.turn -= 360
+        self.turn += self.turn_speed
+        self.image = pygame.transform.rotate(self.original, self.turn)
+        self.rect = self.image.get_rect(center=center)
 
     def stop(self):
         self.state = 'decelerating'
@@ -108,7 +148,7 @@ class Player(pygame.sprite.Sprite):
 class Asteroid(pygame.sprite.Sprite):
     def __init__(self, x_speed, y_speed):
         pygame.sprite.Sprite.__init__(self)
-        image_number = random.randint(1,2)
+        image_number = random.randint(1,3)
         self.image, self.rect = load_image(f'asteroid-{image_number}.png', -1)
         self.movepos = [x_speed,y_speed]
         screen = pygame.display.get_surface()
@@ -184,8 +224,9 @@ def main():
     random.seed()
     
     background = pygame.Surface(screen.get_size()).convert()
+    allsprites = pygame.sprite.RenderUpdates()
     player = Player()
-    asteroids  = pygame.sprite.RenderUpdates()
+    allsprites.add(player)
     number_of_asteroids = random.randint(1, 10)
     while number_of_asteroids > 0:
         x_speed = 0
@@ -194,7 +235,7 @@ def main():
             x_speed = random.randint(-4,4)
         while y_speed == 0:
             y_speed = random.randint(-4,4)
-        asteroids.add(Asteroid(x_speed, y_speed))
+        allsprites.add(Asteroid(x_speed, y_speed))
         number_of_asteroids -= 1
         
     score = 0
@@ -227,20 +268,19 @@ def main():
                 if event.key == pygame.K_SPACE:
                     player.fire()
             elif event.type == pygame.KEYUP:
-                if (event.key == pygame.K_UP or event.key == pygame.K_DOWN or
-                    event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT):
+                if event.key == pygame.K_UP:
                     player.stop()
 
-        # erase asteroids and scoreboard
+        # erase player, asteroids and scoreboard
         screen.blit(background, score_text_rect, score_text_rect)
-        for sprite in asteroids.sprites():
+        for sprite in allsprites.sprites():
             screen.blit(background, sprite.rect, sprite.rect)
 
         # update asteroids and scoreboard
-        asteroids.update()
+        allsprites.update()
 
         # draw everything
-        dirty_rects = asteroids.draw(screen)
+        dirty_rects = allsprites.draw(screen)
         dirty_rects.append(screen.blit(score_text, score_text_rect))
 
         # show updates
