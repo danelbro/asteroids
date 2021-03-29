@@ -1,4 +1,7 @@
-import os, sys, math
+import os
+import sys
+import math
+import random
 import pygame
 
 if not pygame.font: print('Warning, fonts disabled.')
@@ -99,8 +102,40 @@ class Player(pygame.sprite.Sprite):
     def fire(self):
         print('Bang!')
 
+        
 class Asteroid(pygame.sprite.Sprite):
-    pass
+    def __init__(self, x_speed, y_speed):
+        pygame.sprite.Sprite.__init__(self)
+        self.image, self.rect = load_image('asteroid.png', -1)
+        self.movepos = [x_speed,y_speed]
+        screen = pygame.display.get_surface()
+        self.area = screen.get_rect()
+        self.rect.center = (random.randint(0, self.area.width),
+                            random.randint(0, self.area.height))
+
+        
+    def update(self):
+        newpos = self.rect.move(self.movepos)
+        container_area = self.area.inflate(self.rect.width * 2, self.rect.height * 2)
+        if not container_area.contains(newpos):
+            tl = not container_area.collidepoint(newpos.topleft)
+            tr = not container_area.collidepoint(newpos.topright)
+            bl = not container_area.collidepoint(newpos.bottomleft)
+            br = not container_area.collidepoint(newpos.bottomright)
+
+            if (tl and tr):
+                newpos.y = self.area.height
+                                
+            elif (bl and br):
+                newpos.y = 0 - (self.rect.height / 2)
+                
+            elif (tl and bl):
+                newpos.x = self.area.width
+                
+            elif (tr and br):
+                newpos.x = 0 - (self.rect.width / 2)
+                
+        self.rect = newpos
 
 class Shot(pygame.sprite.Sprite):
     pass
@@ -119,11 +154,16 @@ def main():
     fps = 60
     bg_color = (250, 250, 250)
     font = pygame.font.Font(os.path.join('data','Nunito-Regular.ttf'), 36)
-
+    random.seed()
+    
     background = pygame.Surface(screen.get_size()).convert()
     player = Player()
-    asteroid = Asteroid()
-    allsprites = pygame.sprite.RenderPlain(player)
+    asteroids  = pygame.sprite.RenderPlain()
+    number_of_asteroids = random.randint(1, 10)
+    while number_of_asteroids > 0:
+        asteroids.add(Asteroid(random.randint(-4,4), random.randint(-4,4)))
+        number_of_asteroids -= 1
+        
     score = 0
     score_tracker = 0
     score_text = font.render("Score: " + str(score), True, (0, 0, 0))
@@ -156,9 +196,9 @@ def main():
 
         background.fill(bg_color)
         background.blit(score_text, score_text_rect)
-        allsprites.update()
+        asteroids.update()
         screen.blit(background, (0, 0))
-        allsprites.draw(screen)
+        asteroids.draw(screen)
         pygame.display.update()
 
 if __name__ == '__main__':
