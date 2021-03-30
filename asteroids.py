@@ -45,30 +45,56 @@ class Player(pygame.sprite.Sprite):
     Functions: reinit, update, [move functions], fire, die
     Attributes: speed"""
     
-    def __init__(self):
+    def __init__(self, player_pos, player_dir, thrust_power, brake_power, mass,
+                 turn_speed, fluid_density):
         pygame.sprite.Sprite.__init__(self)
         self.image, self.rect = load_image('player.png', -1)
+        self.original = self.image
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
-        self.speed = 6
-        self.turn_speed = 20
-        self.turn = 0
-        self.friction = 0.15
-        self.state = 'still'
-        self.original = self.image
-        self.reinit()
+        self.initial_position = pygame.math.Vector2(player_pos)
+        self.rect.center = self.initial_position
+        self.direction = pygame.math.Vector2(player_dir).normalize()
+        self.thrust_power = thrust_power
+        self.brake_power = brake_power
+        self.mass = mass
+        self.turn_speed = turn_speed
+        self.fluid_density = fluid_density
+        self.velocity = pygame.math.Vector2(0,0)
+        self.acceleration_force = pygame.math.Vector2(0,0)
+        self.turn_amount = 0
+        self.rotate_amount = 0
+        self.drag = 0
 
+    """  
     def reinit(self):
         self.state = 'still'
         self.movepos = [0,0]
         self.rect.center = self.area.center
         self.image = self.original
         self.turn = 0
-
+    """
     def update(self):
-        if self.state == 'decelerating':
-            self.decelerate()
-        newpos = self.rect.move(self.movepos)
+        self.calc_direction()
+        self.calc_velocity()
+        self.calc_drag()
+        newpos = (self.rect.move(self.velocity.x, self.velocity.y))
+        newpos = self.check_collide(newpos)
+        self.rect = newpos
+        self.acceleration_force = pygame.math.Vector2(0,0)
+        self.turn_amount = 0
+        self.rotate_amount = 0
+
+    def calc_velocity(self):
+        self.total_forces = (self.acceleration_force + 
+                             (self.drag * -self.direction))
+        self.acceleration = self.total_forces / self.mass
+        self.velocity += self.acceleration
+
+    def calc_drag(self):
+        self.drag = 0.5 * self.fluid_density * (self.velocity.magnitude_squared())
+
+    def check_collide(self, newpos):
         container_area = self.area.inflate(self.rect.width * 2, self.rect.height * 2)
         if not container_area.contains(newpos):
             tl = not container_area.collidepoint(newpos.topleft)
@@ -88,59 +114,41 @@ class Player(pygame.sprite.Sprite):
             elif (tr and br):
                 newpos.x = 0 - (self.rect.width / 2)
                 
-        self.rect = newpos
+        return newpos
 
-    def accelerate(self):
-        self.state = 'moving'
-        if self.turn < 0:
-            angle = (self.turn + 360) * (math.pi / 180)
-        else:
-            angle = self.turn * (math.pi / 180)
-        z = self.speed
-        dx, dy = (z * math.cos(angle), z * math.sin(angle))
-        self.movepos = [dx, -dy]
+    def thrust(self):
+        self.calc_direction()
+        self.acceleration_force = self.thrust_power * self.direction
 
     def brake(self):
-        self.state = 'braking'
+        self.acceleration_force = -self.brake_power * self.direction
 
-    def turnright(self):
-        center = self.rect.center
-        if self.turn - self.turn_speed <= -360:
-            self.turn += 360
-        self.turn -= self.turn_speed
-        self.image = pygame.transform.rotate(self.original, self.turn)
-        self.rect = self.image.get_rect(center=center)
+    def turn(self, turn_dir):
+        if turn_dir == 'left':
+            self.turn_amount = self.turn_speed
+            self.rotate_amount = self.turn_speed
+        elif turn_dir == 'right':
+            self.turn_amount = -self.turn_speed
+            self.rotate_amount = -self.turn_speed
+        
+    def calc_direction(self):
+        # get current direction angle in radians
+        current_direction_angle = math.atan2(self.direction.y, self.direction.x)
 
-    def turnleft(self):
-        center = self.rect.center
-        if self.turn + self.turn_speed >= 360:
-            self.turn -= 360
-        self.turn += self.turn_speed
-        self.image = pygame.transform.rotate(self.original, self.turn)
-        self.rect = self.image.get_rect(center=center)
+        # apply turn to angle
+        current_direction_angle = math.radians(self.turn_amount)
+        current_direction_angle = max(-math.tau, min(current_direction_angle, math.tau))
 
-    def stop(self):
-        self.state = 'decelerating'
+        # update direction
+        self.direction.x = math.cos(current_direction_angle)
+        self.direction.y = math.sin(current_direction_angle)
+        self.rotate_image()
 
-    def decelerate(self):
-        still = [False, False]
-        if self.movepos[0] < 0:
-            self.movepos[0] += self.friction
-        elif self.movepos[0] > 0:
-            self.movepos[0] -= self.friction
-        elif self.movepos[0] == 0:
-            still[0] = True
-            
-        if self.movepos[1] < 0:
-            self.movepos[1] += self.friction
-        elif self.movepos[1] > 0:
-            self.movepos[1] -= self.friction
-        elif self.movepos[1] == 0:
-            still[1] = True
-
-        if still[0] == True and still[1] == True:
-            self.state = 'still'
-
+    def rotate_image(self):
+        spin = math.degrees(math.atan2(self.direction.y, self.direction.x))
+        self.image = pygame.transform.rotate(self.original, spin)
+        self.rect = self.image.get_rect(center=self.rect.center)
+        
     def fire(self):
         print('Bang!')
 
@@ -225,9 +233,11 @@ def main():
     
     background = pygame.Surface(screen.get_size()).convert()
     allsprites = pygame.sprite.RenderUpdates()
-    player = Player()
+    player = Player(player_pos=screen.get_rect().center, player_dir=(1,0),
+                    thrust_power=40, brake_power=10, mass=20, turn_speed=35,
+                    fluid_density=0.5)
     allsprites.add(player)
-    number_of_asteroids = random.randint(1, 10)
+    number_of_asteroids = 0#random.randint(1, 10)
     while number_of_asteroids > 0:
         x_speed = 0
         y_speed = 0
@@ -258,19 +268,16 @@ def main():
                 if event.key == pygame.K_ESCAPE:
                     return
                 if event.key == pygame.K_UP:
-                    player.accelerate()
+                    player.thrust()
                 if event.key == pygame.K_DOWN:
                     player.brake()
                 if event.key == pygame.K_LEFT:
-                    player.turnleft()
+                    player.turn('left')
                 if event.key == pygame.K_RIGHT:
-                    player.turnright()
+                    player.turn('right')
                 if event.key == pygame.K_SPACE:
                     player.fire()
-            elif event.type == pygame.KEYUP:
-                if event.key == pygame.K_UP:
-                    player.stop()
-
+            
         # erase player, asteroids and scoreboard
         screen.blit(background, score_text_rect, score_text_rect)
         for sprite in allsprites.sprites():
@@ -282,6 +289,7 @@ def main():
         # draw everything
         dirty_rects = allsprites.draw(screen)
         dirty_rects.append(screen.blit(score_text, score_text_rect))
+
 
         # show updates
         pygame.display.update(dirty_rects)
