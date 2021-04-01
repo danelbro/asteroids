@@ -37,11 +37,8 @@ def load_sound(name):
 
 
 class Player(pygame.sprite.Sprite):
-    """Movable 'spaceship' that represents the player. Shoots at asteroids
-    and dies if hit by one.
-    Returns: Player object
-    Functions: reinit, update, [move functions], fire, die
-    Attributes: speed"""
+    """Movable 'spaceship' that represents the player.
+    """
     
     def __init__(self, player_pos, player_dir, thrust_power, 
                  brake_power, mass, turn_speed, fluid_density):
@@ -52,6 +49,7 @@ class Player(pygame.sprite.Sprite):
         self.area = screen.get_rect()
         self.initial_position = pygame.math.Vector2(player_pos)
         self.rect.center = self.initial_position
+        self.gun = Gun()
 
         self.thrust_power = thrust_power
         self.thrust_power = thrust_power
@@ -173,45 +171,37 @@ class Asteroid(pygame.sprite.Sprite):
         self.spin = 0
         self.spin_amount = 0
         while self.spin_amount == 0:
-            self.spin_amount = random.randint(-1,1)
+            self.spin_amount = random.randint(-2,2)
 
-        
     def update(self):
-        self.fly()
-        self.spinner()
-
-    def fly(self):
         newpos = self.rect.move(self.movepos)
-        container_area = self.area.inflate(self.rect.width * 2, self.rect.height * 2)
-        if not container_area.contains(newpos):
-            tl = not container_area.collidepoint(newpos.topleft)
-            tr = not container_area.collidepoint(newpos.topright)
-            bl = not container_area.collidepoint(newpos.bottomleft)
-            br = not container_area.collidepoint(newpos.bottomright)
-
-            if (tl and tr):
-                newpos.y = self.area.height
-                                
-            elif (bl and br):
-                newpos.y = 0 - (self.rect.height / 2)
-                
-            elif (tl and bl):
-                newpos.x = self.area.width
-                
-            elif (tr and br):
-                newpos.x = 0 - (self.rect.width / 2)
-                
+        self.check_collide(newpos)
         self.rect = newpos
+        self.rotate_image()
+
+    def check_collide(self, newpos):
+        if newpos.bottom < 0:
+            newpos.top = self.area.height
+                                
+        elif newpos.top > self.area.height:
+            newpos.bottom = 0
+                
+        elif newpos.right < 0:
+            newpos.left = self.area.width
+                
+        elif newpos.left > self.area.width:
+            newpos.right = 0
         
-    def spinner(self):
-        center = self.rect.center
+        return newpos
+        
+    def rotate_image(self):
         self.spin += self.spin_amount
-        if self.spin >= 360:
+        if self.spin >= 360 or self.spin <= -360:
             self.spin = 0
             self.image = self.original
         else:
             self.image = pygame.transform.rotate(self.original, self.spin)
-        self.rect = self.image.get_rect(center=center)
+        self.rect = self.image.get_rect(center=self.rect.center)
         
 
 class Shot(pygame.sprite.Sprite):
