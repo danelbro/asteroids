@@ -34,7 +34,7 @@ def load_sound(name):
         print('Cannot load sound:', fullname)
         raise SystemExit(message)
     return sound
-
+        
 
 class Player(pygame.sprite.Sprite):
     """Movable 'spaceship' that represents the player.
@@ -42,14 +42,14 @@ class Player(pygame.sprite.Sprite):
     
     def __init__(self, player_pos, player_dir, thrust_power, 
                  brake_power, mass, turn_speed, fluid_density):
-        pygame.sprite.Sprite.__init__(self)
+        super().__init__()
         self.image, self.rect = load_image('player.png', -1)
         self.original = self.image  # for applying rotation to
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
         self.initial_position = pygame.math.Vector2(player_pos)
         self.rect.center = self.initial_position
-        self.gun = Gun()
+        self.fire_rate = 10
 
         self.thrust_power = thrust_power
         self.thrust_power = thrust_power
@@ -152,14 +152,14 @@ class Player(pygame.sprite.Sprite):
                                         self.facing_direction.x))
         self.image = pygame.transform.rotate(self.original, spin)
         self.rect = self.image.get_rect(center=self.rect.center)
-        
+
     def fire(self):
-        print('Bang!')
+        return Shot(self.facing_direction, self.rect.center)
 
         
 class Asteroid(pygame.sprite.Sprite):
     def __init__(self, x_speed, y_speed):
-        pygame.sprite.Sprite.__init__(self)
+        super().__init__()
         image_number = random.randint(1,3)
         self.image, self.rect = load_image(f'asteroid-{image_number}.png', -1)
         self.movepos = [x_speed,y_speed]
@@ -175,7 +175,7 @@ class Asteroid(pygame.sprite.Sprite):
 
     def update(self):
         newpos = self.rect.move(self.movepos)
-        self.check_collide(newpos)
+        newpos = self.check_collide(newpos)
         self.rect = newpos
         self.rotate_image()
 
@@ -205,7 +205,42 @@ class Asteroid(pygame.sprite.Sprite):
         
 
 class Shot(pygame.sprite.Sprite):
-    pass
+    def __init__(self, direction, initial_position):
+        super().__init__()
+        self.speed = 20
+        self.direction = direction
+        self.velocity = self.speed * self.direction
+        self.image, self.rect = load_image('shot.png', -1)
+        self.rect.center = initial_position
+        screen = pygame.display.get_surface()
+        self.area = screen.get_rect()
+        self.rotate_image()
+
+    def update(self):
+        newpos = self.rect.move(self.velocity.x, self.velocity.y)
+        newpos = self.check_collide(newpos)
+        self.rect = newpos
+
+    def rotate_image(self):
+        spin = -math.degrees(math.atan2(self.direction.y, 
+                                        self.direction.x))
+        self.image = pygame.transform.rotate(self.image, spin)
+        self.rect = self.image.get_rect(center=self.rect.center)
+        
+    def check_collide(self, newpos):
+        if newpos.bottom < 0:
+            newpos.top = self.area.height
+                                
+        elif newpos.top > self.area.height:
+            newpos.bottom = 0
+                
+        elif newpos.right < 0:
+            newpos.left = self.area.width
+                
+        elif newpos.left > self.area.width:
+            newpos.right = 0
+        
+        return newpos
 
 
 def main():
@@ -232,10 +267,10 @@ def main():
     background = pygame.Surface(screen.get_size()).convert()
     allsprites = pygame.sprite.RenderUpdates()
     player = Player(player_pos=screen.get_rect().center, player_dir=(0,-1),
-                    thrust_power=50, brake_power=15, mass=25, turn_speed=15,
+                    thrust_power=40, brake_power=15, mass=35, turn_speed=5,
                     fluid_density=0.2)
     allsprites.add(player)
-    number_of_asteroids = random.randint(1, 5)
+    number_of_asteroids = random.randint(1, 10)
     while number_of_asteroids > 0:
         x_speed = 0
         y_speed = 0
@@ -265,16 +300,18 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return
-                if event.key == pygame.K_UP:
-                    player.thrust()
-                if event.key == pygame.K_DOWN:
-                    player.brake()
-                if event.key == pygame.K_LEFT:
-                    player.turn('left')
-                if event.key == pygame.K_RIGHT:
-                    player.turn('right')
-                if event.key == pygame.K_SPACE:
-                    player.fire()
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_UP]:
+            player.thrust()
+        if keys[pygame.K_DOWN]:
+            player.brake()
+        if keys[pygame.K_LEFT]:
+            player.turn('left')
+        if keys[pygame.K_RIGHT]:
+            player.turn('right')
+        if keys[pygame.K_SPACE]:
+            allsprites.add(player.fire())
             
         # erase player, asteroids and scoreboard
         screen.blit(background, score_text_rect, score_text_rect)
@@ -287,7 +324,6 @@ def main():
         # draw everything
         dirty_rects = allsprites.draw(screen)
         dirty_rects.append(screen.blit(score_text, score_text_rect))
-
 
         # show updates
         pygame.display.update(dirty_rects)
