@@ -43,16 +43,13 @@ class Player(pygame.sprite.Sprite):
     Functions: reinit, update, [move functions], fire, die
     Attributes: speed"""
     
-    def __init__(self, player_pos, player_dir, thrust_power, brake_power, mass,
-                 turn_speed, fluid_density):
+    def __init__(self, player_pos, player_dir, thrust_power, 
+                 brake_power, mass, turn_speed, fluid_density):
         pygame.sprite.Sprite.__init__(self)
         self.image, self.rect = load_image('player.png', -1)
         self.original = self.image  # for applying rotation to
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
-        # larger area for wraparound behaviour
-        self.container_area = self.area.inflate(self.rect.width * 2, 
-                                                self.rect.height * 2)
         self.initial_position = pygame.math.Vector2(player_pos)
         self.rect.center = self.initial_position
 
@@ -126,24 +123,18 @@ class Player(pygame.sprite.Sprite):
         self.drag = 0.5 * self.fluid_density * (self.velocity.magnitude_squared())
 
     def check_collide(self, newpos):
-        if not self.container_area.contains(newpos):
-            tl = not self.container_area.collidepoint(newpos.topleft)
-            tr = not self.container_area.collidepoint(newpos.topright)
-            bl = not self.container_area.collidepoint(newpos.bottomleft)
-            br = not self.container_area.collidepoint(newpos.bottomright)
-
-            if (tl and tr):
-                newpos.y = self.area.height
+        if newpos.bottom < 0:
+            newpos.top = self.area.height
                                 
-            elif (bl and br):
-                newpos.y = 0 - (self.rect.height / 2)
+        elif newpos.top > self.area.height:
+            newpos.bottom = 0
                 
-            elif (tl and bl):
-                newpos.x = self.area.width
+        elif newpos.right < 0:
+            newpos.left = self.area.width
                 
-            elif (tr and br):
-                newpos.x = 0 - (self.rect.width / 2)
-                
+        elif newpos.left > self.area.width:
+            newpos.right = 0
+        
         return newpos
 
     def thrust(self):
@@ -232,8 +223,11 @@ def main():
 
     if not pygame.font:
         pygame.quit()
-    
-    screen = pygame.display.set_mode((600, 400))
+
+    height = 600
+    width = 800
+
+    screen = pygame.display.set_mode((width, height))
     pygame.key.set_repeat(50)
     pygame.display.set_caption('Asteroids')
     clock = pygame.time.Clock()
@@ -248,7 +242,7 @@ def main():
     background = pygame.Surface(screen.get_size()).convert()
     allsprites = pygame.sprite.RenderUpdates()
     player = Player(player_pos=screen.get_rect().center, player_dir=(0,-1),
-                    thrust_power=50, brake_power=15, mass=25, turn_speed=30,
+                    thrust_power=50, brake_power=15, mass=25, turn_speed=15,
                     fluid_density=0.2)
     allsprites.add(player)
     number_of_asteroids = random.randint(1, 5)
