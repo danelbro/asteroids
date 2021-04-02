@@ -7,7 +7,7 @@ import pygame
 if not pygame.font: print('Warning, fonts disabled.')
 if not pygame.mixer: print('Warning, sound disabled.')
 
-
+# RESOURCE FUNCTIONS
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
     try:
@@ -36,16 +36,21 @@ def load_sound(name):
     return sound
         
 
+# CLASSES
 class Player(pygame.sprite.Sprite):
     """Movable 'spaceship' that represents the player.
     """
     
     def __init__(self, player_pos, player_dir, thrust_power, 
                  brake_power, mass, turn_speed, fluid_density,
-                 fire_rate):
+                 fire_rate, shot_power):
         super().__init__()
-        self.image, self.rect = load_image('player.png', -1)
-        self.original = self.image  # for applying rotation to
+        self.image, self.rect = load_image('player.png', colorkey=(255,255,255))
+        self.image = pygame.transform.scale(self.image, (round(self.rect.width / 2), 
+                                                         round(self.rect.height / 2)))
+        self.rect = self.image.get_rect()
+                                                    
+        self.original = self.image  # for applying rotation
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
         self.initial_position = pygame.math.Vector2(player_pos)
@@ -63,6 +68,7 @@ class Player(pygame.sprite.Sprite):
         self.drag = 0
         self.fire_rate = 1000 / fire_rate
         self.last_shot_time = 0
+        self.shot_power = shot_power
 
         # directions: 
         # facing_direction is where thrust is applied
@@ -151,7 +157,7 @@ class Player(pygame.sprite.Sprite):
 
     def rotate_image(self):
         spin = -math.degrees(math.atan2(self.facing_direction.y, 
-                                        self.facing_direction.x))
+                                            self.facing_direction.x))
         self.image = pygame.transform.rotate(self.original, spin)
         self.rect = self.image.get_rect(center=self.rect.center)
 
@@ -160,60 +166,14 @@ class Player(pygame.sprite.Sprite):
             return
         elif current_time >= self.last_shot_time + self.fire_rate:
             self.last_shot_time = current_time
-            return Shot(self.facing_direction, self.rect.center)
+            return Shot(self.facing_direction, self.rect.center, 
+                        speed=self.shot_power)
 
-        
-class Asteroid(pygame.sprite.Sprite):
-    def __init__(self, x_speed, y_speed):
-        super().__init__()
-        image_number = random.randint(1,3)
-        self.image, self.rect = load_image(f'asteroid-{image_number}.png', -1)
-        self.movepos = [x_speed,y_speed]
-        screen = pygame.display.get_surface()
-        self.area = screen.get_rect()
-        self.rect.center = (random.randint(0, self.area.width),
-                            random.randint(0, self.area.height))
-        self.original = self.image
-        self.spin = 0
-        self.spin_amount = 0
-        while self.spin_amount == 0:
-            self.spin_amount = random.randint(-2,2)
-
-    def update(self):
-        newpos = self.rect.move(self.movepos)
-        newpos = self.check_collide(newpos)
-        self.rect = newpos
-        self.rotate_image()
-
-    def check_collide(self, newpos):
-        if newpos.bottom < 0:
-            newpos.top = self.area.height
-                                
-        elif newpos.top > self.area.height:
-            newpos.bottom = 0
-                
-        elif newpos.right < 0:
-            newpos.left = self.area.width
-                
-        elif newpos.left > self.area.width:
-            newpos.right = 0
-        
-        return newpos
-        
-    def rotate_image(self):
-        self.spin += self.spin_amount
-        if self.spin >= 360 or self.spin <= -360:
-            self.spin = 0
-            self.image = self.original
-        else:
-            self.image = pygame.transform.rotate(self.original, self.spin)
-        self.rect = self.image.get_rect(center=self.rect.center)
-        
 
 class Shot(pygame.sprite.Sprite):
-    def __init__(self, direction, initial_position):
+    def __init__(self, direction, initial_position, speed=15):
         super().__init__()
-        self.speed = 25
+        self.speed = speed
         self.direction = direction
         self.velocity = self.speed * self.direction
         self.image, self.rect = load_image('shot.png', -1)
@@ -249,59 +209,118 @@ class Shot(pygame.sprite.Sprite):
         return newpos
 
 
-def erase_group(group, blit_surface, erase_surface):
-    for sprite in group.sprites():
-        blit_surface.blit(erase_surface, sprite.rect, sprite.rect)
+class Asteroid(pygame.sprite.Sprite):
+    def __init__(self, velocity, direction, state=3, pos=None):
+        super().__init__()
+        self.state = state
+        self.image, self.rect = load_image(f'asteroid-{state}.png', -1)
+        self.velocity = velocity
+        self.direction = direction.normalize()
+        screen = pygame.display.get_surface()
+        self.area = screen.get_rect()
+        if pos is None:
+            self.rect.center = (random.randint(0, self.area.width),
+                                random.randint(0, self.area.height))
+        else:
+            self.rect.center = pos
+        self.original = self.image
+        self.spin = 0
+        self.spin_amount = 0
+        while self.spin_amount == 0:
+            self.spin_amount = random.randint(-2,2)
+
+    def update(self):
+        newpos = self.rect.move(self.velocity * self.direction)
+        newpos = self.check_collide(newpos)
+        self.rect = newpos
+        self.rotate_image()
+
+    def check_collide(self, newpos):
+        if newpos.bottom < 0:
+            newpos.top = self.area.height
+                                
+        elif newpos.top > self.area.height:
+            newpos.bottom = 0
+                
+        elif newpos.right < 0:
+            newpos.left = self.area.width
+                
+        elif newpos.left > self.area.width:
+            newpos.right = 0
+        
+        return newpos
+        
+    def rotate_image(self):
+        self.spin += self.spin_amount
+        if self.spin >= 360 or self.spin <= -360:
+            self.spin = 0
+            self.image = self.original
+        else:
+            self.image = pygame.transform.rotate(self.original, self.spin)
+        self.rect = self.image.get_rect(center=self.rect.center)
+
+    def hit(self):
+        if self.state > 1:
+            new_asteroids_state = self.state - 1
+            new_asteroid_1 = Asteroid(self.velocity * 1.2, 
+                                      self.direction.rotate(90), 
+                                      new_asteroids_state, 
+                                      pos=(self.rect.left - self.rect.width / 2,
+                                           self.rect.top - self.rect.height / 2))
+            new_asteroid_2 = Asteroid(self.velocity * 1.2,
+                                      self.direction.rotate(270),
+                                      new_asteroids_state,
+                                      pos=(self.rect.right + self.rect.width / 2,
+                                           self.rect.bottom + self.rect.height / 2))
+            return [new_asteroid_1, new_asteroid_2]
+        else: return
 
 
 def main():
     pygame.init()
 
-    if not pygame.font:
-        pygame.quit()
-
+    # initial variables
     height = 600
     width = 800
+    fps = 60
+    bg_color = (250, 250, 250)
+    font_color = (20, 20, 20)
+    base_score = 150
 
+    # initialise pygame stuff
     screen = pygame.display.set_mode((width, height))
     pygame.key.set_repeat(50)
     pygame.display.set_caption('Asteroids')
     clock = pygame.time.Clock()
-    fps = 60
-    bg_color = (250, 250, 250)
-    font_color = (20, 20, 20)
-    if not os.path.basename(os.getcwd()) == "asteroids":
-        os.chdir(os.path.join('/', 'home', 'dan', 'python_scripts', 'asteroids', ''))
-    font = pygame.font.Font(os.path.join('data','Nunito-Regular.ttf'), 36)
     random.seed()
-    
     background = pygame.Surface(screen.get_size()).convert()
-    
+    font = pygame.font.Font(os.path.join('data','Nunito-Regular.ttf'), 36)
+        
     players = pygame.sprite.RenderUpdates()
     asteroids = pygame.sprite.RenderUpdates()
     shots = pygame.sprite.RenderUpdates()
-    allsprites = {'players': players, 
-                  'asteroids': asteroids, 
-                  'shots': shots}
+    allsprites = [players, asteroids, shots]
 
     player = Player(player_pos=screen.get_rect().center, player_dir=(0,-1),
                     thrust_power=40, brake_power=15, mass=45, turn_speed=7,
-                    fluid_density=0.5, fire_rate=5)
-    allsprites['players'].add(player)
+                    fluid_density=0.5, fire_rate=5, shot_power=15)
+    players.add(player)
 
-    number_of_asteroids = random.randint(1, 10)
+    number_of_asteroids = 10
     while number_of_asteroids > 0:
-        x_speed = 0
-        y_speed = 0
-        while x_speed == 0:
-            x_speed = random.randint(-4,4)
-        while y_speed == 0:
-            y_speed = random.randint(-4,4)
-        allsprites['asteroids'].add(Asteroid(x_speed, y_speed))
+        asteroid_velocity = 0
+        while asteroid_velocity == 0:
+            asteroid_velocity = random.randint(-4,4)
+        
+        asteroid_direction = pygame.math.Vector2(0,0)
+        while asteroid_direction.magnitude() == 0:
+            asteroid_direction.x = random.uniform(-1.0, 1.0)
+            asteroid_direction.y = random.uniform(-1.0, 1.0)
+
+        asteroids.add(Asteroid(asteroid_velocity, asteroid_direction))
         number_of_asteroids -= 1
         
     score = 0
-    score_tracker = 0
     score_text = font.render("Score: " + str(score), True, font_color)
     score_text_rect = score_text.get_rect(topleft=(10, 10))
 
@@ -336,26 +355,29 @@ def main():
                 shots.add(shot)
             
         screen.blit(background, score_text_rect, score_text_rect)
-        for key, sprite_group in allsprites.items():
+        for sprite_group in allsprites:
             sprite_group.clear(screen, background)
             sprite_group.update()
 
+        shot_asteroids = pygame.sprite.groupcollide(asteroids, shots, True, True,
+                                                    collided=pygame.sprite.collide_rect_ratio(0.75))
+                                                  
+        for asteroid, shot_list in shot_asteroids.items():
+            score = int(score + (base_score / asteroid.state))
+            new_asteroids = asteroid.hit()
+            if new_asteroids is not None:
+                asteroids.add(new_asteroids)
+
         score_text = font.render("Score: " + str(score), True, font_color)
+        score_text_rect = score_text.get_rect(topleft=(10,10))
         dirty_rects.append(screen.blit(score_text, score_text_rect))
-        for key, sprite_group in allsprites.items():
+        for sprite_group in allsprites:
             group_dirty_rects = sprite_group.draw(screen)
             for dirty_rect in group_dirty_rects:
                 dirty_rects.append(dirty_rect)
 
         pygame.display.update(dirty_rects)
 
-        shot_asteroids = pygame.sprite.groupcollide(allsprites['asteroids'],
-                                                    allsprites['shots'], 
-                                                    True, True,
-                                                    collided=pygame.sprite.collide_rect_ratio(0.75))
-                                                  
-        for asteroid, shot_list in shot_asteroids.items():
-            score += 100
-        
+
 if __name__ == '__main__':
     main()
