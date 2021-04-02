@@ -34,22 +34,22 @@ def load_sound(name):
         print('Cannot load sound:', fullname)
         raise SystemExit(message)
     return sound
-
+        
 
 class Player(pygame.sprite.Sprite):
     """Movable 'spaceship' that represents the player.
     """
     
     def __init__(self, player_pos, player_dir, thrust_power, 
-                 brake_power, mass, turn_speed, fluid_density):
-        pygame.sprite.Sprite.__init__(self)
+                 brake_power, mass, turn_speed, fluid_density,
+                 fire_rate):
+        super().__init__()
         self.image, self.rect = load_image('player.png', -1)
         self.original = self.image  # for applying rotation to
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
         self.initial_position = pygame.math.Vector2(player_pos)
         self.rect.center = self.initial_position
-        self.gun = Gun()
 
         self.thrust_power = thrust_power
         self.thrust_power = thrust_power
@@ -61,6 +61,8 @@ class Player(pygame.sprite.Sprite):
         self.brake_magnitude = 0
         self.turn_amount = 0
         self.drag = 0
+        self.fire_rate = 1000 / fire_rate
+        self.last_shot_time = 0
 
         # directions: 
         # facing_direction is where thrust is applied
@@ -152,14 +154,18 @@ class Player(pygame.sprite.Sprite):
                                         self.facing_direction.x))
         self.image = pygame.transform.rotate(self.original, spin)
         self.rect = self.image.get_rect(center=self.rect.center)
-        
-    def fire(self):
-        print('Bang!')
+
+    def fire(self, current_time):
+        if current_time < self.last_shot_time + self.fire_rate:
+            return
+        elif current_time >= self.last_shot_time + self.fire_rate:
+            self.last_shot_time = current_time
+            return Shot(self.facing_direction, self.rect.center)
 
         
 class Asteroid(pygame.sprite.Sprite):
     def __init__(self, x_speed, y_speed):
-        pygame.sprite.Sprite.__init__(self)
+        super().__init__()
         image_number = random.randint(1,3)
         self.image, self.rect = load_image(f'asteroid-{image_number}.png', -1)
         self.movepos = [x_speed,y_speed]
@@ -175,7 +181,7 @@ class Asteroid(pygame.sprite.Sprite):
 
     def update(self):
         newpos = self.rect.move(self.movepos)
-        self.check_collide(newpos)
+        newpos = self.check_collide(newpos)
         self.rect = newpos
         self.rotate_image()
 
@@ -205,7 +211,47 @@ class Asteroid(pygame.sprite.Sprite):
         
 
 class Shot(pygame.sprite.Sprite):
-    pass
+    def __init__(self, direction, initial_position):
+        super().__init__()
+        self.speed = 25
+        self.direction = direction
+        self.velocity = self.speed * self.direction
+        self.image, self.rect = load_image('shot.png', -1)
+        self.rect.center = initial_position
+        screen = pygame.display.get_surface()
+        self.area = screen.get_rect()
+        self.rotate_image()
+
+    def update(self):
+        newpos = self.rect.move(self.velocity.x, self.velocity.y)
+        newpos = self.check_collide(newpos)
+        self.rect = newpos
+
+    def rotate_image(self):
+        spin = -math.degrees(math.atan2(self.direction.y, 
+                                        self.direction.x))
+        self.image = pygame.transform.rotate(self.image, spin)
+        self.rect = self.image.get_rect(center=self.rect.center)
+        
+    def check_collide(self, newpos):
+        if newpos.bottom < 0:
+            newpos.top = self.area.height
+                                
+        elif newpos.top > self.area.height:
+            newpos.bottom = 0
+                
+        elif newpos.right < 0:
+            newpos.left = self.area.width
+                
+        elif newpos.left > self.area.width:
+            newpos.right = 0
+        
+        return newpos
+
+
+def erase_group(group, blit_surface, erase_surface):
+    for sprite in group.sprites():
+        blit_surface.blit(erase_surface, sprite.rect, sprite.rect)
 
 
 def main():
@@ -230,12 +276,20 @@ def main():
     random.seed()
     
     background = pygame.Surface(screen.get_size()).convert()
-    allsprites = pygame.sprite.RenderUpdates()
+    
+    players = pygame.sprite.RenderUpdates()
+    asteroids = pygame.sprite.RenderUpdates()
+    shots = pygame.sprite.RenderUpdates()
+    allsprites = {'players': players, 
+                  'asteroids': asteroids, 
+                  'shots': shots}
+
     player = Player(player_pos=screen.get_rect().center, player_dir=(0,-1),
-                    thrust_power=50, brake_power=15, mass=25, turn_speed=15,
-                    fluid_density=0.2)
-    allsprites.add(player)
-    number_of_asteroids = random.randint(1, 5)
+                    thrust_power=40, brake_power=15, mass=45, turn_speed=7,
+                    fluid_density=0.5, fire_rate=5)
+    allsprites['players'].add(player)
+
+    number_of_asteroids = random.randint(1, 10)
     while number_of_asteroids > 0:
         x_speed = 0
         y_speed = 0
@@ -243,7 +297,7 @@ def main():
             x_speed = random.randint(-4,4)
         while y_speed == 0:
             y_speed = random.randint(-4,4)
-        allsprites.add(Asteroid(x_speed, y_speed))
+        allsprites['asteroids'].add(Asteroid(x_speed, y_speed))
         number_of_asteroids -= 1
         
     score = 0
@@ -256,41 +310,52 @@ def main():
     pygame.display.update()
     
     while True:
+        dirty_rects = []
         clock.tick(fps)
 
-        # handle input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return
-                if event.key == pygame.K_UP:
-                    player.thrust()
-                if event.key == pygame.K_DOWN:
-                    player.brake()
-                if event.key == pygame.K_LEFT:
-                    player.turn('left')
-                if event.key == pygame.K_RIGHT:
-                    player.turn('right')
-                if event.key == pygame.K_SPACE:
-                    player.fire()
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_UP]:
+            player.thrust()
+        if keys[pygame.K_DOWN]:
+            player.brake()
+        if keys[pygame.K_LEFT]:
+            player.turn('left')
+        if keys[pygame.K_RIGHT]:
+            player.turn('right')
+        if keys[pygame.K_SPACE]:
+            t = pygame.time.get_ticks()
+            shot = player.fire(t)
+            if shot is not None:
+                shots.add(shot)
             
-        # erase player, asteroids and scoreboard
         screen.blit(background, score_text_rect, score_text_rect)
-        for sprite in allsprites.sprites():
-            screen.blit(background, sprite.rect, sprite.rect)
+        for key, sprite_group in allsprites.items():
+            sprite_group.clear(screen, background)
+            sprite_group.update()
 
-        # update asteroids and scoreboard
-        allsprites.update()
-
-        # draw everything
-        dirty_rects = allsprites.draw(screen)
+        score_text = font.render("Score: " + str(score), True, font_color)
         dirty_rects.append(screen.blit(score_text, score_text_rect))
+        for key, sprite_group in allsprites.items():
+            group_dirty_rects = sprite_group.draw(screen)
+            for dirty_rect in group_dirty_rects:
+                dirty_rects.append(dirty_rect)
 
-
-        # show updates
         pygame.display.update(dirty_rects)
+
+        shot_asteroids = pygame.sprite.groupcollide(allsprites['asteroids'],
+                                                    allsprites['shots'], 
+                                                    True, True,
+                                                    collided=pygame.sprite.collide_rect_ratio(0.75))
+                                                  
+        for asteroid, shot_list in shot_asteroids.items():
+            score += 100
         
 if __name__ == '__main__':
     main()
