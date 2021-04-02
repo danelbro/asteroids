@@ -41,7 +41,8 @@ class Player(pygame.sprite.Sprite):
     """
     
     def __init__(self, player_pos, player_dir, thrust_power, 
-                 brake_power, mass, turn_speed, fluid_density):
+                 brake_power, mass, turn_speed, fluid_density,
+                 fire_rate):
         super().__init__()
         self.image, self.rect = load_image('player.png', -1)
         self.original = self.image  # for applying rotation to
@@ -49,7 +50,6 @@ class Player(pygame.sprite.Sprite):
         self.area = screen.get_rect()
         self.initial_position = pygame.math.Vector2(player_pos)
         self.rect.center = self.initial_position
-        self.fire_rate = 10
 
         self.thrust_power = thrust_power
         self.thrust_power = thrust_power
@@ -61,6 +61,8 @@ class Player(pygame.sprite.Sprite):
         self.brake_magnitude = 0
         self.turn_amount = 0
         self.drag = 0
+        self.fire_rate = 1000 / fire_rate
+        self.last_shot_time = 0
 
         # directions: 
         # facing_direction is where thrust is applied
@@ -153,8 +155,12 @@ class Player(pygame.sprite.Sprite):
         self.image = pygame.transform.rotate(self.original, spin)
         self.rect = self.image.get_rect(center=self.rect.center)
 
-    def fire(self):
-        return Shot(self.facing_direction, self.rect.center)
+    def fire(self, current_time):
+        if current_time < self.last_shot_time + self.fire_rate:
+            return
+        elif current_time >= self.last_shot_time + self.fire_rate:
+            self.last_shot_time = current_time
+            return Shot(self.facing_direction, self.rect.center)
 
         
 class Asteroid(pygame.sprite.Sprite):
@@ -267,8 +273,8 @@ def main():
     background = pygame.Surface(screen.get_size()).convert()
     allsprites = pygame.sprite.RenderUpdates()
     player = Player(player_pos=screen.get_rect().center, player_dir=(0,-1),
-                    thrust_power=40, brake_power=15, mass=35, turn_speed=5,
-                    fluid_density=0.2)
+                    thrust_power=40, brake_power=15, mass=40, turn_speed=5,
+                    fluid_density=0.3, fire_rate=10)
     allsprites.add(player)
     number_of_asteroids = random.randint(1, 10)
     while number_of_asteroids > 0:
@@ -311,7 +317,10 @@ def main():
         if keys[pygame.K_RIGHT]:
             player.turn('right')
         if keys[pygame.K_SPACE]:
-            allsprites.add(player.fire())
+            t = pygame.time.get_ticks()
+            shot = player.fire(t)
+            if shot is not None:
+                allsprites.add(shot)
             
         # erase player, asteroids and scoreboard
         screen.blit(background, score_text_rect, score_text_rect)
@@ -327,6 +336,7 @@ def main():
 
         # show updates
         pygame.display.update(dirty_rects)
+        print(clock.get_fps())
         
 if __name__ == '__main__':
     main()
