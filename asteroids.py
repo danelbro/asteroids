@@ -313,7 +313,6 @@ def main():
         dirty_rects = []
         clock.tick(fps)
 
-        # handle input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return
@@ -356,7 +355,7 @@ def main():
                                                     collided=pygame.sprite.collide_rect_ratio(0.75))
                                                   
         for asteroid, shot_list in shot_asteroids.items():
-            score += 1
+            score += 100
         
 if __name__ == '__main__':
     main()
