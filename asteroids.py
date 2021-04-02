@@ -213,7 +213,7 @@ class Asteroid(pygame.sprite.Sprite):
 class Shot(pygame.sprite.Sprite):
     def __init__(self, direction, initial_position):
         super().__init__()
-        self.speed = 20
+        self.speed = 25
         self.direction = direction
         self.velocity = self.speed * self.direction
         self.image, self.rect = load_image('shot.png', -1)
@@ -249,6 +249,11 @@ class Shot(pygame.sprite.Sprite):
         return newpos
 
 
+def erase_group(group, blit_surface, erase_surface):
+    for sprite in group.sprites():
+        blit_surface.blit(erase_surface, sprite.rect, sprite.rect)
+
+
 def main():
     pygame.init()
 
@@ -271,11 +276,19 @@ def main():
     random.seed()
     
     background = pygame.Surface(screen.get_size()).convert()
-    allsprites = pygame.sprite.RenderUpdates()
+    
+    players = pygame.sprite.RenderUpdates()
+    asteroids = pygame.sprite.RenderUpdates()
+    shots = pygame.sprite.RenderUpdates()
+    allsprites = {'players': players, 
+                  'asteroids': asteroids, 
+                  'shots': shots}
+
     player = Player(player_pos=screen.get_rect().center, player_dir=(0,-1),
-                    thrust_power=40, brake_power=15, mass=40, turn_speed=5,
-                    fluid_density=0.3, fire_rate=10)
-    allsprites.add(player)
+                    thrust_power=40, brake_power=15, mass=45, turn_speed=7,
+                    fluid_density=0.5, fire_rate=5)
+    allsprites['players'].add(player)
+
     number_of_asteroids = random.randint(1, 10)
     while number_of_asteroids > 0:
         x_speed = 0
@@ -284,7 +297,7 @@ def main():
             x_speed = random.randint(-4,4)
         while y_speed == 0:
             y_speed = random.randint(-4,4)
-        allsprites.add(Asteroid(x_speed, y_speed))
+        allsprites['asteroids'].add(Asteroid(x_speed, y_speed))
         number_of_asteroids -= 1
         
     score = 0
@@ -297,6 +310,7 @@ def main():
     pygame.display.update()
     
     while True:
+        dirty_rects = []
         clock.tick(fps)
 
         # handle input
@@ -320,23 +334,29 @@ def main():
             t = pygame.time.get_ticks()
             shot = player.fire(t)
             if shot is not None:
-                allsprites.add(shot)
+                shots.add(shot)
             
-        # erase player, asteroids and scoreboard
         screen.blit(background, score_text_rect, score_text_rect)
-        for sprite in allsprites.sprites():
-            screen.blit(background, sprite.rect, sprite.rect)
+        for key, sprite_group in allsprites.items():
+            sprite_group.clear(screen, background)
+            sprite_group.update()
 
-        # update asteroids and scoreboard
-        allsprites.update()
-
-        # draw everything
-        dirty_rects = allsprites.draw(screen)
+        score_text = font.render("Score: " + str(score), True, font_color)
         dirty_rects.append(screen.blit(score_text, score_text_rect))
+        for key, sprite_group in allsprites.items():
+            group_dirty_rects = sprite_group.draw(screen)
+            for dirty_rect in group_dirty_rects:
+                dirty_rects.append(dirty_rect)
 
-        # show updates
         pygame.display.update(dirty_rects)
-        print(clock.get_fps())
+
+        shot_asteroids = pygame.sprite.groupcollide(allsprites['asteroids'],
+                                                    allsprites['shots'], 
+                                                    True, True,
+                                                    collided=pygame.sprite.collide_rect_ratio(0.75))
+                                                  
+        for asteroid, shot_list in shot_asteroids.items():
+            score += 1
         
 if __name__ == '__main__':
     main()
