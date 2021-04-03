@@ -354,6 +354,8 @@ def main():
 
         if len(asteroids.sprites()) == 0:
             level += 1
+            shots.clear(screen, background)
+            shots.empty()
             asteroids.add(spawn_asteroids(level + 1, 2))
     
         dirty_rects = []
