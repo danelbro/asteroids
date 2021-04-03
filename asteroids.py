@@ -107,7 +107,7 @@ class Player(pygame.sprite.Sprite):
 
     def calc_velocity(self):
         # calculate drag
-        self.drag = 0.5 * self.fluid_density * self.velocity.magnitude_squared())
+        self.drag = 0.5 * self.fluid_density * self.velocity.magnitude_squared()
 
         # calculate velocity direction
         if self.velocity.magnitude() != 0:
@@ -327,7 +327,7 @@ def main():
                     fluid_density=0.7, fire_rate=5, shot_power=15)
     players.add(player)
 
-    asteroids.add(spawn_asteroids(level + 1, 2)
+    asteroids.add(spawn_asteroids(level + 1, 2))
 
     # initial blit
     background.fill(bg_color)
@@ -354,7 +354,7 @@ def main():
 
         if len(asteroids.sprites()) == 0:
             level += 1
-            asteroids.add(spawn_asteroids(leveltial blit)
+            asteroids.add(spawn_asteroids(level + 1, 2))
     
         dirty_rects = []
         clock.tick(fps)
