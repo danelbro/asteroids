@@ -75,8 +75,8 @@ class Player(pygame.sprite.Sprite):
         # travelling in the previous frame, and determines how
         # drag will be applied
         self.facing_direction = pygame.math.Vector2(player_dir).normalize()
-        self.velocity = pygame.math.Vector2(0,0)
-        self.velocity_direction = pygame.math.Vector2(0,0)
+        self.velocity = pygame.math.Vector2(0, 0)
+        self.velocity_direction = pygame.math.Vector2(0, 0)
 
     # movement functions
     def update(self):
@@ -107,13 +107,13 @@ class Player(pygame.sprite.Sprite):
 
     def calc_velocity(self):
         # calculate drag
-        self.drag = 0.5 * self.fluid_density * (self.velocity.magnitude_squared())
+        self.drag = 0.5 * self.fluid_density * self.velocity.magnitude_squared())
 
         # calculate velocity direction
         if self.velocity.magnitude() != 0:
             self.velocity_direction = self.velocity.normalize()
         else:
-            self.velocity_direction = pygame.math.Vector2(0,0)
+            self.velocity_direction = pygame.math.Vector2(0, 0)
 
         # calculate total forces and acceleration
         self.total_forces = (self.acceleration_magnitude * self.facing_direction + 
@@ -137,7 +137,7 @@ class Player(pygame.sprite.Sprite):
                                              math.degrees(-direction_angle))
         self.rect = self.image.get_rect(center=self.rect.center)
 
-    # functions in response to input
+    # functions for responding to input
     def thrust(self):
         self.acceleration_magnitude = self.thrust_power
 
@@ -209,7 +209,7 @@ class Asteroid(pygame.sprite.Sprite):
         self.spin = 0
         self.spin_amount = 0
         while self.spin_amount == 0:
-            self.spin_amount = random.randint(-2,2)
+            self.spin_amount = random.randint(-2, 2)
             
         self.velocity = velocity
         self.direction = direction.normalize()
@@ -256,11 +256,11 @@ class Asteroid(pygame.sprite.Sprite):
         if self.state > 1:
             new_asteroids_state = self.state - 1
             new_asteroid_1 = Asteroid(self.velocity * 1.3, 
-                                      self.direction.reflect((0,-1)), 
+                                      self.direction.reflect((0, -1)),
                                       new_asteroids_state, 
                                       pos=self.rect.center)
             new_asteroid_2 = Asteroid(self.velocity * 1.3,
-                                      self.direction.reflect((1,0)),
+                                      self.direction.reflect((1, 0)),
                                       new_asteroids_state,
                                       pos=self.rect.center)
             return [new_asteroid_1, new_asteroid_2]
@@ -274,6 +274,24 @@ def update_score(score, font, font_color, pos):
     return score_text, score_text_rect
 
 
+def spawn_asteroids(number_of_asteroids, min_velocity):
+    asteroid_list = []
+    while number_of_asteroids > 0:
+        asteroid_velocity = 0
+        while math.fabs(asteroid_velocity) < min_velocity:
+            asteroid_velocity = random.randint(-5, 5)
+
+        asteroid_direction = pygame.math.Vector2(0, 0)
+        while asteroid_direction.magnitude() == 0:
+            asteroid_direction.x = random.uniform(-1.0, 1.0)
+            asteroid_direction.y = random.uniform(-1.0, 1.0)
+
+        asteroid_list.append(Asteroid(asteroid_velocity, asteroid_direction))
+        number_of_asteroids -= 1
+
+    return asteroid_list
+
+
 def main():
     pygame.init()
 
@@ -284,7 +302,7 @@ def main():
     bg_color = (250, 250, 250)
     font_color = (20, 20, 20)
     base_score = 150
-    scoreboard_pos = (10,10)
+    scoreboard_pos = (10, 10)
 
     # initialise pygame stuff
     screen = pygame.display.set_mode((width, height))
@@ -292,44 +310,56 @@ def main():
     clock = pygame.time.Clock()
     random.seed()
     background = pygame.Surface(screen.get_size()).convert()
-    font = pygame.font.Font(os.path.join('data','Nunito-Regular.ttf'), 36)
+    font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 36)
+    score = 0
+    score_text = font.render("Score: " + str(score), True, font_color)
+    score_text_rect = score_text.get_rect(topleft=(10, 10))
+    level = 1
         
+    # initialise sprite groups, player and asteroids
     players = pygame.sprite.RenderUpdates()
     asteroids = pygame.sprite.RenderUpdates()
     shots = pygame.sprite.RenderUpdates()
     allsprites = [players, asteroids, shots]
 
-    player = Player(player_pos=screen.get_rect().center, player_dir=(0,-1),
-                    thrust_power=35, brake_power=15, mass=50, turn_speed=8,
+    player = Player(player_pos=screen.get_rect().center, player_dir=(0, -1),
+                    thrust_power=35, brake_power=15, mass=50, turn_speed=10,
                     fluid_density=0.7, fire_rate=5, shot_power=15)
     players.add(player)
 
-    number_of_asteroids = 10
-    while number_of_asteroids > 0:
-        asteroid_velocity = 0
-        while math.fabs(asteroid_velocity) < 2:
-            asteroid_velocity = random.randint(-5,5)
-        
-        asteroid_direction = pygame.math.Vector2(0,0)
-        while asteroid_direction.magnitude() == 0:
-            asteroid_direction.x = random.uniform(-1.0, 1.0)
-            asteroid_direction.y = random.uniform(-1.0, 1.0)
+    asteroids.add(spawn_asteroids(level + 1, 2)
 
-        asteroids.add(Asteroid(asteroid_velocity, asteroid_direction))
-        number_of_asteroids -= 1
-        
-    score = 0
-    score_text = font.render("Score: " + str(score), True, font_color)
-    score_text_rect = score_text.get_rect(topleft=(10, 10))
-
+    # initial blit
     background.fill(bg_color)
-    screen.blit(background, (0,0))
+    screen.blit(background, (0, 0))
     pygame.display.update()
-    
+        
     while True:
+        # check if the player got hit last frame
+        colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
+                                                          collided=pygame.sprite.collide_rect_ratio(0.5))
+        
+        if len(colliding_asteroids) > 0:
+            break
+
+        # check if any asteroids got hit last frame
+        shot_asteroids = pygame.sprite.groupcollide(asteroids, shots, True, True,
+                                                    collided=pygame.sprite.collide_rect_ratio(0.75))
+        
+        for asteroid, shot_list in shot_asteroids.items():
+            score += base_score / asteroid.state
+            new_asteroids = asteroid.hit()
+            if new_asteroids is not None:
+                asteroids.add(new_asteroids)
+
+        if len(asteroids.sprites()) == 0:
+            level += 1
+            asteroids.add(spawn_asteroids(leveltial blit)
+    
         dirty_rects = []
         clock.tick(fps)
 
+        # handle input
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return
@@ -352,20 +382,13 @@ def main():
             if shot is not None:
                 shots.add(shot)
             
+        # erase and update
         screen.blit(background, score_text_rect, score_text_rect)
         for sprite_group in allsprites:
             sprite_group.clear(screen, background)
             sprite_group.update()
 
-        shot_asteroids = pygame.sprite.groupcollide(asteroids, shots, True, True,
-                                                    collided=pygame.sprite.collide_rect_ratio(0.75))
-                                                  
-        for asteroid, shot_list in shot_asteroids.items():
-            score += base_score / asteroid.state
-            new_asteroids = asteroid.hit()
-            if new_asteroids is not None:
-                asteroids.add(new_asteroids)
-
+        # draw to screen
         score_text, score_text_rect = update_score(score, font, font_color, 
                                                    scoreboard_pos)
         dirty_rects.append(screen.blit(score_text, score_text_rect))
@@ -375,6 +398,8 @@ def main():
                 dirty_rects.append(dirty_rect)
 
         pygame.display.update(dirty_rects)
+
+    print('You lose!')
 
 
 if __name__ == '__main__':
