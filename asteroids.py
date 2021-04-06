@@ -79,15 +79,16 @@ class Player(pygame.sprite.Sprite):
         self.velocity_direction = pygame.math.Vector2(0, 0)
 
     # movement functions
-    def update(self):
-        self.apply_turn()
-        self.calc_velocity()
-        self.rect = self.check_collide((self.rect.move(self.velocity.x, 
-                                                       self.velocity.y)))
+    def update(self, delta_time):
+        self.apply_turn(delta_time)
+        self.calc_velocity(delta_time)
+        change_position = self.velocity * delta_time
+        self.rect = self.check_collide((self.rect.move(change_position.x, 
+                                                       change_position.y)))
 
         # reset
         self.acceleration_magnitude = 0
-        self.brake_magnitude = 0
+        self.brake_magnitude = 1
         self.turn_amount = 0
     
     def check_collide(self, newpos):
@@ -105,9 +106,10 @@ class Player(pygame.sprite.Sprite):
         
         return newpos
 
-    def calc_velocity(self):
+    def calc_velocity(self, delta_time):
         # calculate drag
-        self.drag = 0.5 * self.fluid_density * self.velocity.magnitude_squared()
+        self.drag = (0.5 * self.fluid_density * 
+                     self.velocity.magnitude_squared() * self.brake_magnitude)
 
         # calculate velocity direction
         if self.velocity.magnitude() != 0:
@@ -122,12 +124,12 @@ class Player(pygame.sprite.Sprite):
         self.acceleration = self.total_forces / self.mass
 
         # apply acceleration to velocity
-        self.velocity += self.acceleration
+        self.velocity += self.acceleration * delta_time
 
-    def apply_turn(self):
+    def apply_turn(self, delta_time):
         direction_angle = math.atan2(self.facing_direction.y, 
                                      self.facing_direction.x)
-        direction_angle -= math.radians(self.turn_amount)
+        direction_angle -= math.radians(self.turn_amount) * delta_time
         self.facing_direction.x = math.cos(direction_angle)
         self.facing_direction.y = math.sin(direction_angle)
         self.facing_direction = self.facing_direction.normalize()
@@ -171,9 +173,10 @@ class Shot(pygame.sprite.Sprite):
         self.area = screen.get_rect()
         self.rotate_image()
 
-    def update(self):
-        self.rect = self.check_collide(self.rect.move(self.velocity.x, 
-                                                      self.velocity.y))
+    def update(self, delta_time):
+        change_position = self.velocity * delta_time
+        self.rect = self.check_collide(self.rect.move(change_position.x, 
+                                                      change_position.y))
 
     def rotate_image(self):
         spin = -math.degrees(math.atan2(self.direction.y, 
@@ -198,7 +201,7 @@ class Shot(pygame.sprite.Sprite):
 
 
 class Asteroid(pygame.sprite.Sprite):
-    def __init__(self, velocity, direction, state=3, pos=None):
+    def __init__(self, velocity, direction, pos=None, state=3):
         super().__init__()
         self.state = state
         self.image, self.rect = load_image(f'asteroid-{self.state}.png', -1)
@@ -208,8 +211,8 @@ class Asteroid(pygame.sprite.Sprite):
         
         self.spin = 0
         self.spin_amount = 0
-        while self.spin_amount == 0:
-            self.spin_amount = random.randint(-2, 2)
+        while math.fabs(self.spin_amount < 100):
+            self.spin_amount = random.randint(-200, 200)
             
         self.velocity = velocity
         self.direction = direction.normalize()
@@ -223,10 +226,10 @@ class Asteroid(pygame.sprite.Sprite):
             # so: use position from previous asteroid
             self.rect.center = pos
 
-    def update(self):
+    def update(self, delta_time):
         velocity_vector = self.velocity * self.direction
-        self.rect = self.check_collide(self.rect.move(velocity_vector))
-        self.rotate_image()
+        self.rect = self.check_collide(self.rect.move(velocity_vector * delta_time))
+        self.rotate_image(delta_time)
 
     def check_collide(self, newpos):
         if newpos.bottom < 0:
@@ -243,8 +246,8 @@ class Asteroid(pygame.sprite.Sprite):
         
         return newpos
         
-    def rotate_image(self):
-        self.spin += self.spin_amount
+    def rotate_image(self, delta_time):
+        self.spin += self.spin_amount * delta_time
         if self.spin >= 360 or self.spin <= -360:
             self.spin = 0
             self.image = self.original
@@ -256,13 +259,13 @@ class Asteroid(pygame.sprite.Sprite):
         if self.state > 1:
             new_asteroids_state = self.state - 1
             new_asteroid_1 = Asteroid(self.velocity * 1.3, 
-                                      self.direction.reflect((0, -1)),
-                                      new_asteroids_state, 
-                                      pos=self.rect.center)
+                                      self.direction.rotate(90),
+                                      self.rect.center,
+                                      new_asteroids_state)
             new_asteroid_2 = Asteroid(self.velocity * 1.3,
-                                      self.direction.reflect((1, 0)),
-                                      new_asteroids_state,
-                                      pos=self.rect.center)
+                                      self.direction.rotate(-90),
+                                      self.rect.center,
+                                      new_asteroids_state)
             return [new_asteroid_1, new_asteroid_2]
         else: 
             return
@@ -274,19 +277,35 @@ def update_score(score, font, font_color, pos):
     return score_text, score_text_rect
 
 
-def spawn_asteroids(number_of_asteroids, min_velocity):
+def spawn_asteroids(number_of_asteroids, min_velocity, 
+                    max_velocity, min_angle, player_pos, 
+                    min_player_distance, width, height):
     asteroid_list = []
     while number_of_asteroids > 0:
+        # get a random acceptable velocity for this asteroid
         asteroid_velocity = 0
         while math.fabs(asteroid_velocity) < min_velocity:
-            asteroid_velocity = random.randint(-5, 5)
+            asteroid_velocity = random.randint(-max_velocity, max_velocity)
 
+        # get a random acceptable direction for this asteroid
         asteroid_direction = pygame.math.Vector2(0, 0)
-        while asteroid_direction.magnitude() == 0:
+        while (math.fabs(asteroid_direction.x) < min_angle or
+               math.fabs(asteroid_direction.y) < min_angle):
             asteroid_direction.x = random.uniform(-1.0, 1.0)
             asteroid_direction.y = random.uniform(-1.0, 1.0)
 
-        asteroid_list.append(Asteroid(asteroid_velocity, asteroid_direction))
+        # get a random acceptable position for this asteroid
+        position_x = player_pos.centerx
+        position_y = player_pos.centery
+        while (math.fabs(position_x - player_pos.centerx) < min_player_distance or
+               math.fabs(position_y - player_pos.centery) < min_player_distance):
+            position_x = random.randint(0, width)
+            position_y = random.randint(0, height)
+        position = pygame.math.Vector2(position_x, position_y)
+
+        asteroid_list.append(Asteroid(asteroid_velocity, 
+                                      asteroid_direction, 
+                                      position))
         number_of_asteroids -= 1
 
     return asteroid_list
@@ -296,8 +315,8 @@ def main():
     pygame.init()
 
     # initial variables
-    height = 600
     width = 800
+    height = 600
     fps = 60
     bg_color = (250, 250, 250)
     font_color = (20, 20, 20)
@@ -322,12 +341,14 @@ def main():
     shots = pygame.sprite.RenderUpdates()
     allsprites = [players, asteroids, shots]
 
-    player = Player(player_pos=screen.get_rect().center, player_dir=(0, -1),
-                    thrust_power=35, brake_power=15, mass=50, turn_speed=10,
-                    fluid_density=0.7, fire_rate=5, shot_power=15)
+    player = Player(player_pos=screen.get_rect().center, 
+                    player_dir=(0, -1), thrust_power=32000, 
+                    brake_power=5, mass=4, turn_speed=500, 
+                    fluid_density=0.1, fire_rate=5, shot_power=1200)
     players.add(player)
 
-    asteroids.add(spawn_asteroids(level + 1, 2))
+    asteroids.add(spawn_asteroids(level, 200, 300, 0.7, 
+                                  player.rect, 20, width, height))
 
     # initial blit
     background.fill(bg_color)
@@ -335,6 +356,11 @@ def main():
     pygame.display.update()
         
     while True:
+        dirty_rects = []
+        dirty_rects.append(score_text_rect)
+        clock.tick(fps)
+        delta_time = clock.get_time() / 1000 # converted to seconds
+
         # check if the player got hit last frame
         colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
                                                           collided=pygame.sprite.collide_rect_ratio(0.5))
@@ -356,10 +382,8 @@ def main():
             level += 1
             shots.clear(screen, background)
             shots.empty()
-            asteroids.add(spawn_asteroids(level + 1, 2))
-    
-        dirty_rects = []
-        clock.tick(fps)
+            asteroids.add(spawn_asteroids(level, 200, 300, 0.7, 
+                                          player.rect, 20, width, height))
 
         # handle input
         for event in pygame.event.get():
@@ -388,7 +412,7 @@ def main():
         screen.blit(background, score_text_rect, score_text_rect)
         for sprite_group in allsprites:
             sprite_group.clear(screen, background)
-            sprite_group.update()
+            sprite_group.update(delta_time)
 
         # draw to screen
         score_text, score_text_rect = update_score(score, font, font_color, 
@@ -401,7 +425,7 @@ def main():
 
         pygame.display.update(dirty_rects)
 
-    print('You lose!')
+    print('You lose!\nScore: ' + str(int(score)))
 
 
 if __name__ == '__main__':
