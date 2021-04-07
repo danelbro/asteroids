@@ -6,9 +6,19 @@ import pygame
 
 # CLASSES
 class Player(pygame.sprite.Sprite):
-    """Movable 'spaceship' that represents the player.
+    """A class to represent a controllable spaceship.
+
+    Attributes: image, alt_image, images, image_counter, 
+                thrust_animation_speed, original, rect, area,
+                initial_position, thrust_power, thrusting, mass, turn_speed,
+                fluid_density, acceleration_magnitude, turn_amount, drag, 
+                fire_rate, last_shot_time, shot_power, facing_direction, 
+                velocity, velocity_direction
+
+    Methods: update, check_collide, calc_velocity, apply_turn, thrust,
+             turn, fire, hyperspace
     """
-    
+
     def __init__(self, player_pos, player_dir, thrust_power, 
                  mass, turn_speed, fluid_density, fire_rate, 
                  shot_power, animation_speed):
@@ -38,8 +48,7 @@ class Player(pygame.sprite.Sprite):
         self.fire_rate = 1000 / fire_rate
         self.last_shot_time = 0
         self.shot_power = shot_power
-
-        # directions: 
+ 
         # facing_direction is where thrust is applied
         # velocity_direction determines how drag will be applied
         self.facing_direction = pygame.math.Vector2(player_dir)
@@ -249,6 +258,204 @@ class Asteroid(pygame.sprite.Sprite):
             return
 
 
+class GameState():
+    def __init__(self):
+        self.state_dict = {'intro': self.intro, 
+                           'main': self.main, 
+                           'end': self.end}
+        self.state = 'intro'
+
+    def state_controller(self, screen, background, 
+                         bg_color, clock, fps, font_color):
+        self.state = self.state_dict[self.state](screen, background, 
+                                                 bg_color, clock, fps, 
+                                                 font_color)
+        if self.state is None:
+            return True
+
+    def intro(self, screen, background, bg_color, clock, fps, font_color):
+        title_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 52)
+        title_text = title_font.render('Asteroids', True, font_color)
+        title_rect = title_text.get_rect()
+        title_rect.center = (screen.get_rect().centerx, 200)
+
+        button_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 28)
+        button_text = button_font.render('New Game', True, font_color)
+        button_text_rect = button_text.get_rect()
+        button_text_rect.center = (screen.get_rect().centerx, 400)
+
+        while True:
+            clock.tick(fps)
+            background.fill(bg_color)
+            screen.blit(background, (0,0))
+            screen.blit(title_text, title_rect)
+            screen.blit(button_text, button_text_rect)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if button_text_rect.collidepoint(pygame.mouse.get_pos()):
+                        return 'main'
+
+            pygame.display.update()
+        
+
+    def main(self, screen, background, bg_color, clock, fps, font_color):
+        # initial variables
+        padding = 10
+        base_score = 150
+        scoreboard_pos = (padding, padding)
+        score = 0
+        player_pos = screen.get_rect().center
+        player_dir = (0, -1)
+        player_thrust = 16000
+        player_mass = 32
+        player_turn_speed = 500
+        player_fire_rate = 10
+        player_shot_power = 800
+        player_animation_speed = 0.5
+        level_friction = 0.1
+        level = 1
+        level_asteroids_offset = 2
+        min_asteroid_velocity = 150
+        max_asteroid_velocity = 200
+        min_asteroid_direction_angle = 0.7
+        min_asteroid_spawn_dist_to_player = 150
+        breakaway_asteroid_velocity_scale = 1.1
+        bullet_lifespan = 0.75
+        space_pressed = False
+        shift_pressed = False
+        remains_alive = True
+    
+        # text setup
+        score_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 24)
+        score_text = score_font.render("Score: " + str(score), True, font_color)
+        score_text_rect = score_text.get_rect(topleft=scoreboard_pos)
+            
+        # initialise sprite groups, player and asteroids
+        players = pygame.sprite.RenderUpdates()
+        asteroids = pygame.sprite.RenderUpdates()
+        shots = pygame.sprite.RenderUpdates()
+        allsprites = [players, asteroids, shots]
+
+        player = Player(player_pos, player_dir, player_thrust, player_mass,
+                        player_turn_speed, level_friction, player_fire_rate,
+                        player_shot_power, player_animation_speed)
+        players.add(player)
+
+        asteroids.add(spawn_asteroids(level + level_asteroids_offset, 
+                                    min_asteroid_velocity, 
+                                    max_asteroid_velocity,
+                                    min_asteroid_direction_angle, player.rect, 
+                                    min_asteroid_spawn_dist_to_player, 
+                                    screen.get_width(), screen.get_height()))
+
+        # initial blit/update
+        background.fill(bg_color)
+        screen.blit(background, (0, 0))
+        pygame.display.update()
+
+        while True:
+            dirty_rects = []
+            dirty_rects.append(score_text_rect)
+            fps_number = 1000 / clock.tick(fps)
+            delta_time = clock.get_time() / 1000 # converted to seconds
+
+
+            # check if the player got hit by an asteroid
+            colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
+                                                            collided=pygame.sprite.collide_rect_ratio(0.75))
+            
+            if len(colliding_asteroids) > 0 or not remains_alive:
+                return 'end'
+
+            # check if any asteroids got hit
+            shot_asteroids = pygame.sprite.groupcollide(asteroids, shots, True, True,
+                                                        collided=pygame.sprite.collide_rect_ratio(0.75))
+            
+            for asteroid, shot_list in shot_asteroids.items():
+                score += base_score / asteroid.state
+                new_asteroids = asteroid.hit(breakaway_asteroid_velocity_scale)
+                if new_asteroids is not None:
+                    asteroids.add(new_asteroids)
+
+            if len(asteroids) == 0:
+                level += 1
+                shots.clear(screen, background)
+                shots.empty()
+                asteroids.add(spawn_asteroids(level + level_asteroids_offset, 
+                                            min_asteroid_velocity, 
+                                            max_asteroid_velocity,
+                                            min_asteroid_direction_angle, 
+                                            player.rect, 
+                                            min_asteroid_spawn_dist_to_player,
+                                            screen.get_width(), screen.get_height()))
+
+            # handle input
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+                elif event.type == pygame.KEYUP:
+                    if event.key == pygame.K_SPACE:
+                        space_pressed = False
+                    if event.key == pygame.K_LSHIFT:
+                        shift_pressed = False
+                    if event.key == pygame.K_UP:
+                        player.thrusting = False
+
+            keys = pygame.key.get_pressed()
+            if keys[pygame.K_UP]:
+                player.thrust()
+            if keys[pygame.K_LEFT]:
+                player.turn('left')
+            if keys[pygame.K_RIGHT]:
+                player.turn('right')
+            if keys[pygame.K_LSHIFT] and not shift_pressed:
+                shift_pressed = True
+                remains_alive = player.hyperspace(len(asteroids))
+            if keys[pygame.K_SPACE] and not space_pressed:
+                t = pygame.time.get_ticks()
+                space_pressed = True
+                shot = player.fire(t, bullet_lifespan)
+                if shot is not None:
+                    shots.add(shot)
+                
+            # erase and update
+            screen.blit(background, score_text_rect, score_text_rect)
+            for sprite_group in allsprites:
+                sprite_group.clear(screen, background)
+                sprite_group.update(delta_time)
+
+            for shot in shots.sprites():
+                if shot.lifetime >= shot.lifespan:
+                    shots.remove(shot)
+
+            # draw to screen
+            score_text, score_text_rect = update_text(score, "Score: ", score_font, 
+                                                      font_color, scoreboard_pos)
+            dirty_rects.append(screen.blit(score_text, score_text_rect))
+            for sprite_group in allsprites:
+                group_dirty_rects = sprite_group.draw(screen)
+                for dirty_rect in group_dirty_rects:
+                    dirty_rects.append(dirty_rect)
+
+            pygame.display.update(dirty_rects)
+
+    def end(self, screen, background, bg_color, clock, fps, font_color):
+        pass
+
+
 # RESOURCE FUNCTIONS
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
@@ -319,162 +526,25 @@ def spawn_asteroids(number_of_asteroids, min_velocity,
 def main():
     pygame.init()
 
-    # initial variables
+    # initialise pygame stuff
     width = 1280
     height = 720
-    padding = 10
-    fps = 60
-    bg_color = (255, 255, 255)
-    font_color = (20, 20, 20)
-    base_score = 150
-    scoreboard_pos = (padding, padding)
-    score = 0
-    player_pos = (width / 2, height / 2)
-    player_dir = (0, -1)
-    player_thrust = 16000
-    player_mass = 32
-    player_turn_speed = 500
-    player_fire_rate = 10
-    player_shot_power = 800
-    player_animation_speed = 0.5
-    level_friction = 0.1
-    level = 1
-    level_asteroids_offset = 2
-    min_asteroid_velocity = 150
-    max_asteroid_velocity = 200
-    min_asteroid_direction_angle = 0.7
-    min_asteroid_spawn_dist_to_player = 150
-    breakaway_asteroid_velocity_scale = 1.1
-    bullet_lifespan = 0.75
-    space_pressed = False
-    shift_pressed = False
-    remains_alive = True
-
-    # initialise pygame stuff
     screen = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Asteroids')
     clock = pygame.time.Clock()
     random.seed()
+    done = False
+
+    bg_color = (255, 255, 255)
+    font_color = (20, 20, 20)
+    fps = 60
+
     background = pygame.Surface(screen.get_size()).convert()
-    
-    # text setup
-    score_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 36)
-    score_text = score_font.render("Score: " + str(score), True, font_color)
-    score_text_rect = score_text.get_rect(topleft=scoreboard_pos)
-        
-    # initialise sprite groups, player and asteroids
-    players = pygame.sprite.RenderUpdates()
-    asteroids = pygame.sprite.RenderUpdates()
-    shots = pygame.sprite.RenderUpdates()
-    allsprites = [players, asteroids, shots]
+    game_state = GameState()
 
-    player = Player(player_pos, player_dir, player_thrust, player_mass,
-                    player_turn_speed, level_friction, player_fire_rate,
-                    player_shot_power, player_animation_speed)
-    players.add(player)
-
-    asteroids.add(spawn_asteroids(level + level_asteroids_offset, 
-                                  min_asteroid_velocity, 
-                                  max_asteroid_velocity,
-                                  min_asteroid_direction_angle, player.rect, 
-                                  min_asteroid_spawn_dist_to_player,
-                                  width, height))
-
-    # initial blit/update
-    background.fill(bg_color)
-    screen.blit(background, (0, 0))
-    pygame.display.update()
-
-    while True:
-        dirty_rects = []
-        dirty_rects.append(score_text_rect)
-        fps_number = 1000 / clock.tick(fps)
-        delta_time = clock.get_time() / 1000 # converted to seconds
-
-
-        # check if the player got hit by an asteroid
-        colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
-                                                          collided=pygame.sprite.collide_rect_ratio(0.75))
-        
-        if len(colliding_asteroids) > 0 or not remains_alive:
-            break
-
-        # check if any asteroids got hit
-        shot_asteroids = pygame.sprite.groupcollide(asteroids, shots, True, True,
-                                                    collided=pygame.sprite.collide_rect_ratio(0.75))
-        
-        for asteroid, shot_list in shot_asteroids.items():
-            score += base_score / asteroid.state
-            new_asteroids = asteroid.hit(breakaway_asteroid_velocity_scale)
-            if new_asteroids is not None:
-                asteroids.add(new_asteroids)
-
-        if len(asteroids.sprites()) == 0:
-            level += 1
-            shots.clear(screen, background)
-            shots.empty()
-            asteroids.add(spawn_asteroids(level + level_asteroids_offset, 
-                                          min_asteroid_velocity, 
-                                          max_asteroid_velocity,
-                                          min_asteroid_direction_angle, 
-                                          player.rect, 
-                                          min_asteroid_spawn_dist_to_player,
-                                          width, height))
-
-        # handle input
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    return
-            elif event.type == pygame.KEYUP:
-                if event.key == pygame.K_SPACE:
-                    space_pressed = False
-                if event.key == pygame.K_LSHIFT:
-                    shift_pressed = False
-                if event.key == pygame.K_UP:
-                    player.thrusting = False
-
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_UP]:
-            player.thrust()
-        if keys[pygame.K_LEFT]:
-            player.turn('left')
-        if keys[pygame.K_RIGHT]:
-            player.turn('right')
-        if keys[pygame.K_LSHIFT] and not shift_pressed:
-            shift_pressed = True
-            remains_alive = player.hyperspace(len(asteroids.sprites()))
-        if keys[pygame.K_SPACE] and not space_pressed:
-            t = pygame.time.get_ticks()
-            space_pressed = True
-            shot = player.fire(t, bullet_lifespan)
-            if shot is not None:
-                shots.add(shot)
-            
-        # erase and update
-        screen.blit(background, score_text_rect, score_text_rect)
-        for sprite_group in allsprites:
-            sprite_group.clear(screen, background)
-            sprite_group.update(delta_time)
-
-        for shot in shots.sprites():
-            if shot.lifetime >= shot.lifespan:
-                shots.remove(shot)
-
-        # draw to screen
-        score_text, score_text_rect = update_text(score, "Score: ", score_font, 
-                                                  font_color, scoreboard_pos)
-        dirty_rects.append(screen.blit(score_text, score_text_rect))
-        for sprite_group in allsprites:
-            group_dirty_rects = sprite_group.draw(screen)
-            for dirty_rect in group_dirty_rects:
-                dirty_rects.append(dirty_rect)
-
-        pygame.display.update(dirty_rects)
-
-    print('You lose!\nScore: ' + str(int(score)))
+    while not done:
+        done = game_state.state_controller(screen, background, bg_color, 
+                                           clock, fps, font_color)
 
 
 if __name__ == '__main__':
