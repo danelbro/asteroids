@@ -87,7 +87,7 @@ class Player(pygame.sprite.Sprite):
     def calc_velocity(self, delta_time):
         # calculate drag
         self.drag = (0.5 * self.fluid_density * 
-                     self.velocity.magnitude_squared())
+                      self.velocity.magnitude_squared())
 
         # calculate velocity direction
         if self.velocity.magnitude() != 0:
@@ -343,7 +343,7 @@ def main():
     min_asteroid_velocity = 150
     max_asteroid_velocity = 200
     min_asteroid_direction_angle = 0.7
-    min_asteroid_spawn_dist_to_player = 50
+    min_asteroid_spawn_dist_to_player = 150
     breakaway_asteroid_velocity_scale = 1.1
     bullet_lifespan = 0.75
     space_pressed = False
@@ -401,7 +401,7 @@ def main():
 
         # check if the player got hit by an asteroid
         colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
-                                                          collided=pygame.sprite.collide_rect_ratio(0.5))
+                                                          collided=pygame.sprite.collide_rect_ratio(0.75))
 
         # check if the player got hit by a bullet
         #colliding_bullets = pygame.sprite.spritecollide(player, shots, False,
