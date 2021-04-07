@@ -244,7 +244,7 @@ class Asteroid(pygame.sprite.Sprite):
         else:
             self.image = pygame.transform.rotate(self.original, self.spin)
         self.rect = self.image.get_rect(center=self.rect.center)
-        self.mask = pygame.mask
+        self.mask = pygame.mask.from_surface(self.image)
 
     def hit(self, velocity_scale):
         if self.state > 1:
@@ -378,7 +378,7 @@ class GameState():
 
             # check if the player got hit by an asteroid
             colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
-                                                            collided=pygame.sprite.collide_mask)
+                                                              collided=pygame.sprite.collide_mask)
             
             if len(colliding_asteroids) > 0 or not remains_alive:
                 return 'end', score
