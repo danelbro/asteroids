@@ -8,7 +8,7 @@ import pygame
 class Player(pygame.sprite.Sprite):
     """A class to represent a controllable spaceship.
 
-    Attributes: image, alt_image, images, image_counter, 
+    Attributes: image, alt_image, images, image_counter, mask
                 thrust_animation_speed, original, rect, area,
                 initial_position, thrust_power, thrusting, mass, turn_speed,
                 fluid_density, acceleration_magnitude, turn_amount, drag, 
@@ -36,6 +36,7 @@ class Player(pygame.sprite.Sprite):
         self.area = screen.get_rect()
         self.initial_position = pygame.math.Vector2(player_pos)
         self.rect.center = self.initial_position
+        self.mask = pygame.mask.from_surface(self.image)
 
         self.thrust_power = thrust_power
         self.thrusting = False
@@ -120,6 +121,7 @@ class Player(pygame.sprite.Sprite):
         direction_angle = -math.degrees(math.atan2(self.facing_direction.y, 
                                                   self.facing_direction.x))
         self.image = pygame.transform.rotate(self.original, direction_angle)
+        self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect(center=self.rect.center)
 
     # functions for responding to input
@@ -203,6 +205,7 @@ class Asteroid(pygame.sprite.Sprite):
         self.original = self.image
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
         
         self.spin = 0
         self.spin_amount = 0
@@ -241,6 +244,7 @@ class Asteroid(pygame.sprite.Sprite):
         else:
             self.image = pygame.transform.rotate(self.original, self.spin)
         self.rect = self.image.get_rect(center=self.rect.center)
+        self.mask = pygame.mask
 
     def hit(self, velocity_scale):
         if self.state > 1:
@@ -374,7 +378,7 @@ class GameState():
 
             # check if the player got hit by an asteroid
             colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
-                                                            collided=pygame.sprite.collide_rect_ratio(0.75))
+                                                            collided=pygame.sprite.collide_mask)
             
             if len(colliding_asteroids) > 0 or not remains_alive:
                 return 'end', score
