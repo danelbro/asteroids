@@ -461,16 +461,40 @@ class GameState():
             pygame.display.update(dirty_rects)
 
     def end(self, screen, background, bg_color, clock, fps, font_color, score):
-        heading_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 36)
+        font_file = os.path.join('data', 'Nunito-Regular.ttf')
+        heading_font = pygame.font.Font(font_file, 42)
+        score_font = pygame.font.Font(font_file, 52)
+        button_font = pygame.font.Font(font_file, 28)
+
+
         heading_text = heading_font.render('Game Over', True, font_color)
         heading_text_rect = heading_text.get_rect()
         heading_text_rect.center = (screen.get_width() / 2, 200)
+
+        score_text = score_font.render('Score: ' + str(int(score)), True, font_color)
+        score_text_rect = score_text.get_rect()
+        score_text_rect.center = (screen.get_width() / 2, 300)
+
+        button_color = (100, 100, 100)
+        new_game_text = button_font.render('New Game', True, font_color)
+        new_game_text_rect = new_game_text.get_rect()
+        new_game_text_rect.center = (screen.get_width() / 2, 400)
+        #new_game_button = pygame.Surface((new_game_text_rect.size)).convert()
+        #new_game_button.fill(button_color)
+
+        quit_text = button_font.render('Quit', True, font_color)
+        quit_text_rect = quit_text.get_rect()
+        quit_text_rect.center = (screen.get_width() / 2, 440)
 
         while True:
             clock.tick(fps)
             background.fill(bg_color)
             screen.blit(background, (0,0))
             screen.blit(heading_text, heading_text_rect)
+            screen.blit(score_text, score_text_rect)
+            #screen.blit(new_game_button, new_game_text_rect)
+            screen.blit(new_game_text, new_game_text_rect)
+            screen.blit(quit_text, quit_text_rect)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -480,13 +504,17 @@ class GameState():
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
                         sys.exit()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    if new_game_text_rect.collidepoint(mouse_pos):
+                        return 'main', 0
+                    elif quit_text_rect.collidepoint(mouse_pos):
+                        pygame.quit()
+                        sys.exit()
             
             pygame.display.update()
 
-        if False:
-            return 'intro', 0
-        else:
-            return None, 0
+        return None, 0
 
 
 # RESOURCE FUNCTIONS
