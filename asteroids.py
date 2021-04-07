@@ -264,16 +264,20 @@ class GameState():
                            'main': self.main, 
                            'end': self.end}
         self.state = 'intro'
+        self.score = 0
 
     def state_controller(self, screen, background, 
                          bg_color, clock, fps, font_color):
-        self.state = self.state_dict[self.state](screen, background, 
-                                                 bg_color, clock, fps, 
-                                                 font_color)
+        self.state, self.score = self.state_dict[self.state](screen, 
+                                                             background,
+                                                             bg_color, 
+                                                             clock, fps, 
+                                                             font_color, 
+                                                             self.score)
         if self.state is None:
             return True
 
-    def intro(self, screen, background, bg_color, clock, fps, font_color):
+    def intro(self, screen, background, bg_color, clock, fps, font_color, score):
         title_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 52)
         title_text = title_font.render('Asteroids', True, font_color)
         title_rect = title_text.get_rect()
@@ -301,12 +305,12 @@ class GameState():
                         sys.exit()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if button_text_rect.collidepoint(pygame.mouse.get_pos()):
-                        return 'main'
+                        return 'main', 0
 
             pygame.display.update()
         
 
-    def main(self, screen, background, bg_color, clock, fps, font_color):
+    def main(self, screen, background, bg_color, clock, fps, font_color, score):
         # initial variables
         padding = 10
         base_score = 150
@@ -373,7 +377,7 @@ class GameState():
                                                             collided=pygame.sprite.collide_rect_ratio(0.75))
             
             if len(colliding_asteroids) > 0 or not remains_alive:
-                return 'end'
+                return 'end', score
 
             # check if any asteroids got hit
             shot_asteroids = pygame.sprite.groupcollide(asteroids, shots, True, True,
@@ -452,8 +456,9 @@ class GameState():
 
             pygame.display.update(dirty_rects)
 
-    def end(self, screen, background, bg_color, clock, fps, font_color):
-        pass
+    def end(self, screen, background, bg_color, clock, fps, font_color, score):
+        print(str(int(score)))
+        return None, 0
 
 
 # RESOURCE FUNCTIONS
