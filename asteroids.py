@@ -361,12 +361,6 @@ def main():
     score_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 36)
     score_text = score_font.render("Score: " + str(score), True, font_color)
     score_text_rect = score_text.get_rect(topleft=scoreboard_pos)
-
-    #fps_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 12)
-    #fps_text_rect = fps_text.get_rect()
-    #fps_text = fps_font.render("FPS: " + str(fps), True, font_color)
-    #fps_pos = (width - fps_text_rect.width - padding, padding)
-    #fps_text_rect.topleft = fps_pos
         
     # initialise sprite groups, player and asteroids
     players = pygame.sprite.RenderUpdates()
@@ -394,7 +388,6 @@ def main():
     while True:
         dirty_rects = []
         dirty_rects.append(score_text_rect)
-        #dirty_rects.append(fps_text_rect)
         fps_number = 1000 / clock.tick(fps)
         delta_time = clock.get_time() / 1000 # converted to seconds
 
@@ -402,12 +395,8 @@ def main():
         # check if the player got hit by an asteroid
         colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
                                                           collided=pygame.sprite.collide_rect_ratio(0.75))
-
-        # check if the player got hit by a bullet
-        #colliding_bullets = pygame.sprite.spritecollide(player, shots, False,
-        #                                                collided=pygame.sprite.collide_rect_ratio(0.5))
         
-        if len(colliding_asteroids) > 0 or not remains_alive: # or len(colliding_bullets) > 0:
+        if len(colliding_asteroids) > 0 or not remains_alive:
             break
 
         # check if any asteroids got hit
@@ -466,7 +455,6 @@ def main():
             
         # erase and update
         screen.blit(background, score_text_rect, score_text_rect)
-        #screen.blit(background, fps_text_rect, fps_text_rect)
         for sprite_group in allsprites:
             sprite_group.clear(screen, background)
             sprite_group.update(delta_time)
@@ -478,10 +466,7 @@ def main():
         # draw to screen
         score_text, score_text_rect = update_text(score, "Score: ", score_font, 
                                                   font_color, scoreboard_pos)
-        #fps_text, fps_text_rect = update_text(fps_number, "FPS: ", fps_font,
-        #                                      font_color, fps_pos)
         dirty_rects.append(screen.blit(score_text, score_text_rect))
-        #dirty_rects.append(screen.blit(fps_text, fps_text_rect))
         for sprite_group in allsprites:
             group_dirty_rects = sprite_group.draw(screen)
             for dirty_rect in group_dirty_rects:
