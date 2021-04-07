@@ -555,6 +555,9 @@ def main():
         done = game_state.state_controller(screen, background, bg_color, 
                                            clock, fps, font_color)
 
+    pygame.quit()
+    sys.exit()
+
 
 if __name__ == '__main__':
     main()
