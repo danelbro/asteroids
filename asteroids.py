@@ -10,8 +10,8 @@ class Player(pygame.sprite.Sprite):
     """
     
     def __init__(self, player_pos, player_dir, thrust_power, 
-                 brake_power, mass, turn_speed, fluid_density,
-                 fire_rate, shot_power, animation_speed):
+                 mass, turn_speed, fluid_density, fire_rate, 
+                 shot_power, animation_speed):
         super().__init__()
         self.image, self.rect = load_image('player-0.png', 
                                            colorkey=(255,255,255))
@@ -29,12 +29,10 @@ class Player(pygame.sprite.Sprite):
 
         self.thrust_power = thrust_power
         self.thrusting = False
-        self.brake_power = brake_power
         self.mass = mass
         self.turn_speed = turn_speed
         self.fluid_density = fluid_density
         self.acceleration_magnitude = 0
-        self.brake_magnitude = 0
         self.turn_amount = 0
         self.drag = 0
         self.fire_rate = 1000 / fire_rate
@@ -69,7 +67,6 @@ class Player(pygame.sprite.Sprite):
 
         # reset
         self.acceleration_magnitude = 0
-        self.brake_magnitude = 1
         self.turn_amount = 0
     
     def check_collide(self, newpos):
@@ -90,7 +87,7 @@ class Player(pygame.sprite.Sprite):
     def calc_velocity(self, delta_time):
         # calculate drag
         self.drag = (0.5 * self.fluid_density * 
-                     self.velocity.magnitude_squared() * self.brake_magnitude)
+                     self.velocity.magnitude_squared())
 
         # calculate velocity direction
         if self.velocity.magnitude() != 0:
@@ -99,9 +96,9 @@ class Player(pygame.sprite.Sprite):
             self.velocity_direction = pygame.math.Vector2(0, 0)
 
         # calculate total forces and acceleration
-        self.total_forces = (self.acceleration_magnitude * self.facing_direction + 
-                             (self.drag * -self.velocity_direction) +
-                             (self.brake_magnitude * -self.velocity_direction))
+        self.total_forces = ((self.acceleration_magnitude * 
+                              self.facing_direction) + 
+                             (self.drag * -self.velocity_direction))
         self.acceleration = self.total_forces / self.mass
 
         # apply acceleration to velocity
@@ -120,9 +117,6 @@ class Player(pygame.sprite.Sprite):
     def thrust(self):
         self.acceleration_magnitude = self.thrust_power
         self.thrusting = True
-
-    def brake(self):
-        self.brake_magnitude = self.brake_power
 
     def turn(self, turn_dir):
         if turn_dir == 'left':
@@ -335,6 +329,15 @@ def main():
     base_score = 150
     scoreboard_pos = (padding, padding)
     score = 0
+    player_pos = (width / 2, height / 2)
+    player_dir = (0, -1)
+    player_thrust = 16000
+    player_mass = 32
+    player_turn_speed = 500
+    player_fire_rate = 10
+    player_shot_power = 800
+    player_animation_speed = 0.5
+    level_friction = 0.1
     level = 1
     level_asteroids_offset = 2
     min_asteroid_velocity = 150
@@ -371,11 +374,9 @@ def main():
     shots = pygame.sprite.RenderUpdates()
     allsprites = [players, asteroids, shots]
 
-    player = Player(player_pos=screen.get_rect().center, 
-                    player_dir=(0, -1), thrust_power=16000, 
-                    brake_power=5, mass=32, turn_speed=500, 
-                    fluid_density=0.1, fire_rate=10, shot_power=800,
-                    animation_speed=0.5)
+    player = Player(player_pos, player_dir, player_thrust, player_mass,
+                    player_turn_speed, level_friction, player_fire_rate,
+                    player_shot_power, player_animation_speed)
     players.add(player)
 
     asteroids.add(spawn_asteroids(level + level_asteroids_offset, 
@@ -449,8 +450,6 @@ def main():
         keys = pygame.key.get_pressed()
         if keys[pygame.K_UP]:
             player.thrust()
-        if keys[pygame.K_DOWN]:
-            player.brake()
         if keys[pygame.K_LEFT]:
             player.turn('left')
         if keys[pygame.K_RIGHT]:
