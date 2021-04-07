@@ -461,8 +461,32 @@ class GameState():
             pygame.display.update(dirty_rects)
 
     def end(self, screen, background, bg_color, clock, fps, font_color, score):
-        print(str(int(score)))
-        return None, 0
+        heading_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 36)
+        heading_text = heading_font.render('Game Over', True, font_color)
+        heading_text_rect = heading_text.get_rect()
+        heading_text_rect.center = (screen.get_width() / 2, 200)
+
+        while True:
+            clock.tick(fps)
+            background.fill(bg_color)
+            screen.blit(background, (0,0))
+            screen.blit(heading_text, heading_text_rect)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+            
+            pygame.display.update()
+
+        if False:
+            return 'intro', 0
+        else:
+            return None, 0
 
 
 # RESOURCE FUNCTIONS
