@@ -4,38 +4,6 @@ import math
 import random
 import pygame
 
-if not pygame.font: print('Warning, fonts disabled.')
-if not pygame.mixer: print('Warning, sound disabled.')
-
-# RESOURCE FUNCTIONS
-def load_image(name, colorkey=None):
-    fullname = os.path.join('data', name)
-    try:
-        image = pygame.image.load(fullname).convert()
-    except pygame.error as message:
-        print('Cannot load image: ', name)
-        raise SystemExit(message)
-    if colorkey is not None:
-        if colorkey == -1:
-            colorkey = image.get_at((0, 0))
-        image.set_colorkey(colorkey, pygame.RLEACCEL)
-    return image, image.get_rect()
-
-
-def load_sound(name):
-    class NoneSound:
-        def play(self): pass
-    if not pygame.mixer:
-        return NoneSound()
-    fullname = os.path.join('data', name)
-    try:
-        sound = pygame.mixer.Sound(fullname)
-    except pygame.error as message:
-        print('Cannot load sound:', fullname)
-        raise SystemExit(message)
-    return sound
-        
-
 # CLASSES
 class Player(pygame.sprite.Sprite):
     """Movable 'spaceship' that represents the player.
@@ -43,12 +11,15 @@ class Player(pygame.sprite.Sprite):
     
     def __init__(self, player_pos, player_dir, thrust_power, 
                  brake_power, mass, turn_speed, fluid_density,
-                 fire_rate, shot_power):
+                 fire_rate, shot_power, animation_speed):
         super().__init__()
-        self.image, self.rect = load_image('player.png', colorkey=(255,255,255))
-        self.image = pygame.transform.scale(self.image, (round(self.rect.width / 2), 
-                                                         round(self.rect.height / 2)))
-        self.rect = self.image.get_rect()
+        self.image, self.rect = load_image('player-0.png', 
+                                           colorkey=(255,255,255))
+        self.alt_image, self.rect = load_image('player-1.png', 
+                                               colorkey=(255,255,255))
+        self.images = [self.image, self.alt_image]
+        self.image_counter = 0
+        self.thrust_animation_speed = animation_speed
                                                     
         self.original = self.image  # for applying rotation
         screen = pygame.display.get_surface()
@@ -57,6 +28,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.center = self.initial_position
 
         self.thrust_power = thrust_power
+        self.thrusting = False
         self.brake_power = brake_power
         self.mass = mass
         self.turn_speed = turn_speed
@@ -71,15 +43,24 @@ class Player(pygame.sprite.Sprite):
 
         # directions: 
         # facing_direction is where thrust is applied
-        # velocity_direction is the direction the player was
-        # travelling in the previous frame, and determines how
-        # drag will be applied
-        self.facing_direction = pygame.math.Vector2(player_dir).normalize()
+        # velocity_direction determines how drag will be applied
+        self.facing_direction = pygame.math.Vector2(player_dir)
         self.velocity = pygame.math.Vector2(0, 0)
         self.velocity_direction = pygame.math.Vector2(0, 0)
 
     # movement functions
     def update(self, delta_time):
+        # animate thrust
+        if not self.thrusting:
+            self.image_counter = 0
+        else:
+            self.image_counter += self.thrust_animation_speed
+            if self.image_counter >= 2:
+                self.image_counter = 0
+        self.image = self.images[int(self.image_counter)]
+        self.original = self.image
+        
+        # rotate and move
         self.apply_turn(delta_time)
         self.calc_velocity(delta_time)
         change_position = self.velocity * delta_time
@@ -127,21 +108,18 @@ class Player(pygame.sprite.Sprite):
         self.velocity += self.acceleration * delta_time
 
     def apply_turn(self, delta_time):
-        direction_angle = math.atan2(self.facing_direction.y, 
-                                     self.facing_direction.x)
-        direction_angle -= math.radians(self.turn_amount) * delta_time
-        self.facing_direction.x = math.cos(direction_angle)
-        self.facing_direction.y = math.sin(direction_angle)
-        self.facing_direction = self.facing_direction.normalize()
+        self.facing_direction = self.facing_direction.rotate(-self.turn_amount * delta_time)
 
         # rotate image
-        self.image = pygame.transform.rotate(self.original, 
-                                             math.degrees(-direction_angle))
+        direction_angle = -math.degrees(math.atan2(self.facing_direction.y, 
+                                                  self.facing_direction.x))
+        self.image = pygame.transform.rotate(self.original, direction_angle)
         self.rect = self.image.get_rect(center=self.rect.center)
 
     # functions for responding to input
     def thrust(self):
         self.acceleration_magnitude = self.thrust_power
+        self.thrusting = True
 
     def brake(self):
         self.brake_magnitude = self.brake_power
@@ -152,28 +130,42 @@ class Player(pygame.sprite.Sprite):
         elif turn_dir == 'right':
             self.turn_amount = -self.turn_speed
 
-    def fire(self, current_time):
+    def fire(self, current_time, lifespan):
         if current_time < self.last_shot_time + self.fire_rate:
             return
         elif current_time >= self.last_shot_time + self.fire_rate:
             self.last_shot_time = current_time
-            return Shot(self.facing_direction, self.rect.center, 
-                        speed=self.shot_power)
+            spawn_point = self.rect.center + (self.facing_direction * self.rect.height / 2 )
+            return Shot(self.facing_direction, spawn_point, self.shot_power, lifespan)
+
+    def hyperspace(self, number_of_asteroids):
+        self.rect.center = (random.randint(0, self.area.width),
+                            random.randint(0, self.area.height))
+        
+        if random.random() > 0.95:
+            return False
+        else:
+            return True
 
 
 class Shot(pygame.sprite.Sprite):
-    def __init__(self, direction, initial_position, speed=15):
+    def __init__(self, direction, initial_position, power, lifespan):
         super().__init__()
-        self.speed = speed
-        self.direction = direction
-        self.velocity = self.speed * self.direction
         self.image, self.rect = load_image('shot.png', -1)
+        self.initial_position = pygame.math.Vector2(initial_position)
         self.rect.center = initial_position
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
+        
+        self.direction = direction
+        self.velocity = power * self.direction
         self.rotate_image()
 
+        self.lifetime = 0.0
+        self.lifespan = lifespan
+
     def update(self, delta_time):
+        self.lifetime += delta_time
         change_position = self.velocity * delta_time
         self.rect = self.check_collide(self.rect.move(change_position.x, 
                                                       change_position.y))
@@ -216,15 +208,7 @@ class Asteroid(pygame.sprite.Sprite):
             
         self.velocity = velocity
         self.direction = direction.normalize()
-
-        if pos is None:
-            # new asteroids
-            self.rect.center = (random.randint(0, self.area.width),
-                                random.randint(0, self.area.height))
-        else:
-            # this asteroid came from another being destroyed
-            # so: use position from previous asteroid
-            self.rect.center = pos
+        self.rect.center = pos
 
     def update(self, delta_time):
         velocity_vector = self.velocity * self.direction * delta_time
@@ -271,6 +255,35 @@ class Asteroid(pygame.sprite.Sprite):
             return
 
 
+# RESOURCE FUNCTIONS
+def load_image(name, colorkey=None):
+    fullname = os.path.join('data', name)
+    try:
+        image = pygame.image.load(fullname).convert()
+    except pygame.error as message:
+        print('Cannot load image: ', name)
+        raise SystemExit(message)
+    if colorkey is not None:
+        if colorkey == -1:
+            colorkey = image.get_at((0, 0))
+        image.set_colorkey(colorkey, pygame.RLEACCEL)
+    return image, image.get_rect()
+
+
+def load_sound(name):
+    class NoneSound:
+        def play(self): pass
+    if not pygame.mixer:
+        return NoneSound()
+    fullname = os.path.join('data', name)
+    try:
+        sound = pygame.mixer.Sound(fullname)
+    except pygame.error as message:
+        print('Cannot load sound:', fullname)
+        raise SystemExit(message)
+    return sound
+
+
 def update_text(number, title_string, font, font_color, pos):
     text = font.render(title_string + str(int(number)), True, font_color)
     text_rect = text.get_rect(topleft=pos)
@@ -313,21 +326,26 @@ def main():
     pygame.init()
 
     # initial variables
-    width = 800
-    height = 600
+    width = 1280
+    height = 720
     padding = 10
     fps = 60
-    bg_color = (250, 250, 250)
+    bg_color = (255, 255, 255)
     font_color = (20, 20, 20)
     base_score = 150
     scoreboard_pos = (padding, padding)
     score = 0
     level = 1
-    min_asteroid_velocity = 300
-    max_asteroid_velocity = 400
+    level_asteroids_offset = 2
+    min_asteroid_velocity = 150
+    max_asteroid_velocity = 200
     min_asteroid_direction_angle = 0.7
-    min_asteroid_spawn_dist_to_player = 20
-    breakaway_asteroid_velocity_scale = 1.3
+    min_asteroid_spawn_dist_to_player = 50
+    breakaway_asteroid_velocity_scale = 1.1
+    bullet_lifespan = 0.75
+    space_pressed = False
+    shift_pressed = False
+    remains_alive = True
 
     # initialise pygame stuff
     screen = pygame.display.set_mode((width, height))
@@ -338,13 +356,14 @@ def main():
     
     # text setup
     score_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 36)
-    fps_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 12)
     score_text = score_font.render("Score: " + str(score), True, font_color)
-    fps_text = fps_font.render("FPS: " + str(fps), True, font_color)
     score_text_rect = score_text.get_rect(topleft=scoreboard_pos)
-    fps_text_rect = fps_text.get_rect()
-    fps_pos = (width - fps_text_rect.width - padding, padding)
-    fps_text_rect.topleft = fps_pos
+
+    #fps_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 12)
+    #fps_text_rect = fps_text.get_rect()
+    #fps_text = fps_font.render("FPS: " + str(fps), True, font_color)
+    #fps_pos = (width - fps_text_rect.width - padding, padding)
+    #fps_text_rect.topleft = fps_pos
         
     # initialise sprite groups, player and asteroids
     players = pygame.sprite.RenderUpdates()
@@ -353,12 +372,14 @@ def main():
     allsprites = [players, asteroids, shots]
 
     player = Player(player_pos=screen.get_rect().center, 
-                    player_dir=(0, -1), thrust_power=32000, 
-                    brake_power=5, mass=4, turn_speed=500, 
-                    fluid_density=0.1, fire_rate=5, shot_power=1200)
+                    player_dir=(0, -1), thrust_power=16000, 
+                    brake_power=5, mass=32, turn_speed=500, 
+                    fluid_density=0.1, fire_rate=10, shot_power=800,
+                    animation_speed=0.5)
     players.add(player)
 
-    asteroids.add(spawn_asteroids(level, min_asteroid_velocity, 
+    asteroids.add(spawn_asteroids(level + level_asteroids_offset, 
+                                  min_asteroid_velocity, 
                                   max_asteroid_velocity,
                                   min_asteroid_direction_angle, player.rect, 
                                   min_asteroid_spawn_dist_to_player,
@@ -372,18 +393,23 @@ def main():
     while True:
         dirty_rects = []
         dirty_rects.append(score_text_rect)
-        dirty_rects.append(fps_text_rect)
+        #dirty_rects.append(fps_text_rect)
         fps_number = 1000 / clock.tick(fps)
         delta_time = clock.get_time() / 1000 # converted to seconds
 
-        # check if the player got hit last frame
+
+        # check if the player got hit by an asteroid
         colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
                                                           collided=pygame.sprite.collide_rect_ratio(0.5))
+
+        # check if the player got hit by a bullet
+        #colliding_bullets = pygame.sprite.spritecollide(player, shots, False,
+        #                                                collided=pygame.sprite.collide_rect_ratio(0.5))
         
-        if len(colliding_asteroids) > 0:
+        if len(colliding_asteroids) > 0 or not remains_alive: # or len(colliding_bullets) > 0:
             break
 
-        # check if any asteroids got hit last frame
+        # check if any asteroids got hit
         shot_asteroids = pygame.sprite.groupcollide(asteroids, shots, True, True,
                                                     collided=pygame.sprite.collide_rect_ratio(0.75))
         
@@ -397,7 +423,8 @@ def main():
             level += 1
             shots.clear(screen, background)
             shots.empty()
-            asteroids.add(spawn_asteroids(level, min_asteroid_velocity, 
+            asteroids.add(spawn_asteroids(level + level_asteroids_offset, 
+                                          min_asteroid_velocity, 
                                           max_asteroid_velocity,
                                           min_asteroid_direction_angle, 
                                           player.rect, 
@@ -411,6 +438,13 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_SPACE:
+                    space_pressed = False
+                if event.key == pygame.K_LSHIFT:
+                    shift_pressed = False
+                if event.key == pygame.K_UP:
+                    player.thrusting = False
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_UP]:
@@ -421,26 +455,34 @@ def main():
             player.turn('left')
         if keys[pygame.K_RIGHT]:
             player.turn('right')
-        if keys[pygame.K_SPACE]:
+        if keys[pygame.K_LSHIFT] and not shift_pressed:
+            shift_pressed = True
+            remains_alive = player.hyperspace(len(asteroids.sprites()))
+        if keys[pygame.K_SPACE] and not space_pressed:
             t = pygame.time.get_ticks()
-            shot = player.fire(t)
+            space_pressed = True
+            shot = player.fire(t, bullet_lifespan)
             if shot is not None:
                 shots.add(shot)
             
         # erase and update
         screen.blit(background, score_text_rect, score_text_rect)
-        screen.blit(background, fps_text_rect, fps_text_rect)
+        #screen.blit(background, fps_text_rect, fps_text_rect)
         for sprite_group in allsprites:
             sprite_group.clear(screen, background)
             sprite_group.update(delta_time)
 
+        for shot in shots.sprites():
+            if shot.lifetime >= shot.lifespan:
+                shots.remove(shot)
+
         # draw to screen
-        score_text, score_text_rect = update_text(score, "Score: ", score_font, font_color, 
-                                                  scoreboard_pos)
-        fps_text, fps_text_rect = update_text(fps_number, "FPS: ", fps_font, font_color, 
-                                              fps_pos)
+        score_text, score_text_rect = update_text(score, "Score: ", score_font, 
+                                                  font_color, scoreboard_pos)
+        #fps_text, fps_text_rect = update_text(fps_number, "FPS: ", fps_font,
+        #                                      font_color, fps_pos)
         dirty_rects.append(screen.blit(score_text, score_text_rect))
-        dirty_rects.append(screen.blit(fps_text, fps_text_rect))
+        #dirty_rects.append(screen.blit(fps_text, fps_text_rect))
         for sprite_group in allsprites:
             group_dirty_rects = sprite_group.draw(screen)
             for dirty_rect in group_dirty_rects:
