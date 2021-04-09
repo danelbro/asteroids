@@ -271,33 +271,52 @@ class GameState():
         self.score = 0
 
     def state_controller(self, screen, background, 
-                         bg_color, clock, fps, font_color):
+                         bg_color, clock, fps, font_color, font_file):
         self.state, self.score = self.state_dict[self.state](screen, 
                                                              background,
                                                              bg_color, 
                                                              clock, fps, 
-                                                             font_color, 
+                                                             font_color,
+                                                             font_file,
                                                              self.score)
         if self.state is None:
             return True
 
-    def intro(self, screen, background, bg_color, clock, fps, font_color, score):
-        title_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 52)
+    def intro(self, screen, background, bg_color, clock, fps, font_color, font_file, score):
+        title_font = pygame.font.Font(font_file, 52)
+        button_font = pygame.font.Font(font_file, 28)
+
         title_text = title_font.render('Asteroids', True, font_color)
         title_rect = title_text.get_rect()
         title_rect.center = (screen.get_rect().centerx, 200)
 
-        button_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 28)
-        button_text = button_font.render('New Game', True, font_color)
-        button_text_rect = button_text.get_rect()
-        button_text_rect.center = (screen.get_rect().centerx, 400)
+        button_color = (200, 200, 200)
+        new_game_text = button_font.render('New Game', True, font_color)
+        new_game_text_rect = new_game_text.get_rect()
+        new_game_text_rect.center = (screen.get_width() / 2, 400)
+        new_game_button_rect = new_game_text_rect.inflate(10,10)
+        new_game_button = pygame.Surface(new_game_button_rect.size).convert()
+        new_game_button.fill(button_color)
+
+        quit_text = button_font.render('Quit', True, font_color)
+        quit_text_rect = quit_text.get_rect()
+        quit_text_rect.center = (screen.get_width() / 2, 450)
+        quit_button_rect = pygame.rect.Rect(new_game_button_rect.x, 
+                                            quit_text_rect.y, 
+                                            new_game_button_rect.width, 
+                                            quit_text_rect.height)
+        quit_button = pygame.Surface(quit_button_rect.size).convert()
+        quit_button.fill(button_color)
 
         while True:
             clock.tick(fps)
             background.fill(bg_color)
             screen.blit(background, (0,0))
             screen.blit(title_text, title_rect)
-            screen.blit(button_text, button_text_rect)
+            screen.blit(new_game_button, new_game_button_rect)
+            screen.blit(new_game_text, new_game_text_rect)
+            screen.blit(quit_button, quit_button_rect)
+            screen.blit(quit_text, quit_text_rect)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -307,18 +326,24 @@ class GameState():
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
                         sys.exit()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if button_text_rect.collidepoint(pygame.mouse.get_pos()):
+                    if event.key == pygame.K_RETURN:
                         return 'main', 0
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if new_game_button_rect.collidepoint(pygame.mouse.get_pos()):
+                        return 'main', 0
+                    if quit_button_rect.collidepoint(pygame.mouse.get_pos()):
+                        pygame.quit()
+                        sys.exit()
 
             pygame.display.update()
         
 
-    def main(self, screen, background, bg_color, clock, fps, font_color, score):
+    def main(self, screen, background, bg_color, clock, fps, font_color, font_file, score):
         # initial variables
         padding = 10
         base_score = 150
-        scoreboard_pos = (padding, padding)
+        level_text_pos = (padding, padding)
+        scoreboard_pos = (padding, padding + 30)
         score = 0
         player_pos = screen.get_rect().center
         player_dir = (0, -1)
@@ -342,8 +367,10 @@ class GameState():
         remains_alive = True
     
         # text setup
-        score_font = pygame.font.Font(os.path.join('data', 'Nunito-Regular.ttf'), 24)
-        score_text = score_font.render("Score: " + str(score), True, font_color)
+        scoreboard_font = pygame.font.Font(font_file, 24)
+        level_text = scoreboard_font.render(str(level), True, font_color)
+        score_text = scoreboard_font.render(str(score), True, font_color)
+        level_text_rect = level_text.get_rect(topleft=level_text_pos)
         score_text_rect = score_text.get_rect(topleft=scoreboard_pos)
             
         # initialise sprite groups, player and asteroids
@@ -412,8 +439,7 @@ class GameState():
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                        sys.exit()
+                        return 'intro', 0
                 elif event.type == pygame.KEYUP:
                     if event.key == pygame.K_SPACE:
                         space_pressed = False
@@ -440,6 +466,7 @@ class GameState():
                     shots.add(shot)
                 
             # erase and update
+            screen.blit(background, level_text_rect, level_text_rect)
             screen.blit(background, score_text_rect, score_text_rect)
             for sprite_group in allsprites:
                 sprite_group.clear(screen, background)
@@ -450,8 +477,15 @@ class GameState():
                     shots.remove(shot)
 
             # draw to screen
-            score_text, score_text_rect = update_text(score, "Score: ", score_font, 
-                                                      font_color, scoreboard_pos)
+            level_text, level_text_rect = update_text(level, "Level: ", 
+                                                      scoreboard_font,
+                                                      font_color, 
+                                                      level_text_pos)
+            score_text, score_text_rect = update_text(score, "Score: ", 
+                                                      scoreboard_font, 
+                                                      font_color, 
+                                                      scoreboard_pos)
+            dirty_rects.append(screen.blit(level_text, level_text_rect))
             dirty_rects.append(screen.blit(score_text, score_text_rect))
             for sprite_group in allsprites:
                 group_dirty_rects = sprite_group.draw(screen)
@@ -460,13 +494,11 @@ class GameState():
 
             pygame.display.update(dirty_rects)
 
-    def end(self, screen, background, bg_color, clock, fps, font_color, score):
-        font_file = os.path.join('data', 'Nunito-Regular.ttf')
+    def end(self, screen, background, bg_color, clock, fps, font_color, font_file, score):
         heading_font = pygame.font.Font(font_file, 42)
         score_font = pygame.font.Font(font_file, 52)
         button_font = pygame.font.Font(font_file, 28)
-
-
+        
         heading_text = heading_font.render('Game Over', True, font_color)
         heading_text_rect = heading_text.get_rect()
         heading_text_rect.center = (screen.get_width() / 2, 200)
@@ -475,16 +507,23 @@ class GameState():
         score_text_rect = score_text.get_rect()
         score_text_rect.center = (screen.get_width() / 2, 300)
 
-        button_color = (100, 100, 100)
+        button_color = (200, 200, 200)
         new_game_text = button_font.render('New Game', True, font_color)
         new_game_text_rect = new_game_text.get_rect()
         new_game_text_rect.center = (screen.get_width() / 2, 400)
-        #new_game_button = pygame.Surface((new_game_text_rect.size)).convert()
-        #new_game_button.fill(button_color)
+        new_game_button_rect = new_game_text_rect.inflate(10,10)
+        new_game_button = pygame.Surface(new_game_button_rect.size).convert()
+        new_game_button.fill(button_color)
 
         quit_text = button_font.render('Quit', True, font_color)
         quit_text_rect = quit_text.get_rect()
-        quit_text_rect.center = (screen.get_width() / 2, 440)
+        quit_text_rect.center = (screen.get_width() / 2, 450)
+        quit_button_rect = pygame.rect.Rect(new_game_button_rect.x, 
+                                            quit_text_rect.y, 
+                                            new_game_button_rect.width, 
+                                            quit_text_rect.height)
+        quit_button = pygame.Surface(quit_button_rect.size).convert()
+        quit_button.fill(button_color)
 
         while True:
             clock.tick(fps)
@@ -492,8 +531,9 @@ class GameState():
             screen.blit(background, (0,0))
             screen.blit(heading_text, heading_text_rect)
             screen.blit(score_text, score_text_rect)
-            #screen.blit(new_game_button, new_game_text_rect)
+            screen.blit(new_game_button, new_game_button_rect)
             screen.blit(new_game_text, new_game_text_rect)
+            screen.blit(quit_button, quit_button_rect)
             screen.blit(quit_text, quit_text_rect)
 
             for event in pygame.event.get():
@@ -504,11 +544,13 @@ class GameState():
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
                         sys.exit()
+                    if event.key == pygame.K_RETURN:
+                        return 'main', 0
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
-                    if new_game_text_rect.collidepoint(mouse_pos):
+                    if new_game_button.get_rect().collidepoint(mouse_pos):
                         return 'main', 0
-                    elif quit_text_rect.collidepoint(mouse_pos):
+                    elif quit_button.get_rect().collidepoint(mouse_pos):
                         pygame.quit()
                         sys.exit()
             
@@ -516,6 +558,13 @@ class GameState():
 
         return None, 0
 
+
+class Scoreboard():
+    pass
+
+
+class Buttons():
+    pass
 
 # RESOURCE FUNCTIONS
 def load_image(name, colorkey=None):
@@ -597,6 +646,7 @@ def main():
     done = False
 
     bg_color = (255, 255, 255)
+    font_file = os.path.join('data', 'Nunito-Regular.ttf')
     font_color = (20, 20, 20)
     fps = 60
 
@@ -605,7 +655,7 @@ def main():
 
     while not done:
         done = game_state.state_controller(screen, background, bg_color, 
-                                           clock, fps, font_color)
+                                           clock, fps, font_color, font_file)
 
     pygame.quit()
     sys.exit()
