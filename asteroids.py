@@ -17,7 +17,7 @@ def main():
 
     # common variables
     bg_color = (255, 255, 255)
-    font_file = os.path.join('data', 'Nunito-Regular.ttf')
+    font_file = os.path.join('data', 'fonts', 'Nunito-Regular.ttf')
     font_color = (20, 20, 20)
     fps = 60
 

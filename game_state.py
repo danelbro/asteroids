@@ -94,6 +94,7 @@ class GameState():
         player_fire_rate = 10
         player_shot_power = 800
         player_animation_speed = 0.4
+        player_folder_name = 'player'
         level_friction = 0.1
         level = 1
         level_asteroids_offset = 3
@@ -122,7 +123,8 @@ class GameState():
 
         player = Player(player_pos, player_dir, player_thrust, player_mass,
                         player_turn_speed, level_friction, player_fire_rate,
-                        player_shot_power, player_animation_speed)
+                        player_shot_power, player_animation_speed, 
+                        player_folder_name)
         players.add(player)
 
         asteroids.add(Asteroid.spawn_asteroids(level + level_asteroids_offset, 

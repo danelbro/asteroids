@@ -1,8 +1,8 @@
 import os
 import pygame
 
-def load_image(name, colorkey=None):
-    fullname = os.path.join('data', name)
+def load_image(name, folder_name, colorkey=None):
+    fullname = os.path.join(folder_name, name)
     try:
         image = pygame.image.load(fullname).convert()
     except pygame.error as message:
@@ -12,7 +12,7 @@ def load_image(name, colorkey=None):
         if colorkey == -1:
             colorkey = image.get_at((0, 0))
         image.set_colorkey(colorkey, pygame.RLEACCEL)
-    return image, image.get_rect()
+    return image
 
 
 def load_sound(name):

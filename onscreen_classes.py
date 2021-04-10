@@ -1,5 +1,6 @@
 import pygame
 import random
+import os
 import math
 from resource_functions import load_image, load_sound
 
@@ -19,13 +20,17 @@ class Player(pygame.sprite.Sprite):
 
     def __init__(self, player_pos, player_dir, thrust_power, 
                  mass, turn_speed, fluid_density, fire_rate, 
-                 shot_power, animation_speed):
+                 shot_power, animation_speed, folder_name):
         super().__init__()
-        self.image, self.rect = load_image('player-0.png', 
-                                           colorkey=(255,255,255))
-        self.alt_image, self.rect = load_image('player-1.png', 
-                                               colorkey=(255,255,255))
-        self.images = [self.image, self.alt_image]
+        self.images = []
+        self.folder_name = os.path.join('data', 'sprites', folder_name)
+        self.number_of_images = len(os.listdir(self.folder_name))
+        for i in range(self.number_of_images):
+            image_name = folder_name + '-' + str(i) + '.png'
+            self.images.append(load_image(image_name, self.folder_name,
+                                          colorkey=(255,255,255)))
+        self.image = self.images[0]
+        self.rect = self.image.get_rect()
         self.image_counter = 0
         self.thrust_animation_speed = animation_speed
                                                     
@@ -61,7 +66,7 @@ class Player(pygame.sprite.Sprite):
             self.image_counter = 0
         else:
             self.image_counter += self.thrust_animation_speed
-            if self.image_counter >= 2:
+            if self.image_counter >= self.number_of_images:
                 self.image_counter = 0
         self.image = self.images[int(self.image_counter)]
         self.original = self.image
@@ -154,7 +159,9 @@ class Player(pygame.sprite.Sprite):
 class Shot(pygame.sprite.Sprite):
     def __init__(self, direction, initial_position, power, lifespan):
         super().__init__()
-        self.image, self.rect = load_image('shot.png', -1)
+        self.folder_name = os.path.join('data', 'sprites', 'shot')
+        self.image = load_image('shot.png', self.folder_name, -1)
+        self.rect = self.image.get_rect()
         self.initial_position = pygame.math.Vector2(initial_position)
         self.rect.center = initial_position
         screen = pygame.display.get_surface()
@@ -199,7 +206,10 @@ class Asteroid(pygame.sprite.Sprite):
     def __init__(self, velocity, direction, pos=None, state=3):
         super().__init__()
         self.state = state
-        self.image, self.rect = load_image(f'asteroid-{self.state}.png', -1)
+        self.folder_name = os.path.join('data', 'sprites', 'asteroid')
+        self.image = load_image(f'asteroid-{self.state}.png', 
+                                self.folder_name, -1)
+        self.rect = self.image.get_rect()
         self.original = self.image
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
