@@ -7,12 +7,12 @@ from resource_functions import load_image, load_sound
 class Player(pygame.sprite.Sprite):
     """A class to represent a controllable spaceship.
 
-    Attributes: image, alt_image, images, image_counter, mask
-                thrust_animation_speed, original, rect, area,
-                initial_position, thrust_power, thrusting, mass, turn_speed,
-                fluid_density, acceleration_magnitude, turn_amount, drag, 
-                fire_rate, last_shot_time, shot_power, facing_direction, 
-                velocity, velocity_direction
+    Attributes: images, folder_name, number_of_images, image, original, 
+                image_counter, mask, thrust_animation_speed, original, rect, 
+                area, initial_position, thrust_power, thrusting, mass, 
+                turn_speed, fluid_density, acceleration_magnitude, 
+                turn_amount, drag, fire_rate, last_shot_time, shot_power, 
+                remains_alive, facing_direction, velocity, velocity_direction
 
     Methods: update, check_collide, calc_velocity, apply_turn, thrust,
              turn, fire, hyperspace
@@ -20,7 +20,7 @@ class Player(pygame.sprite.Sprite):
 
     def __init__(self, player_pos, player_dir, thrust_power, 
                  mass, turn_speed, fluid_density, fire_rate, 
-                 shot_power, animation_speed, folder_name):
+                 shot_power, animation_speed, folder_name, remains_alive):
         super().__init__()
         self.images = []
         self.folder_name = os.path.join('data', 'sprites', folder_name)
@@ -52,6 +52,7 @@ class Player(pygame.sprite.Sprite):
         self.fire_rate = 1000 / fire_rate
         self.last_shot_time = 0
         self.shot_power = shot_power
+        self.remains_alive = remains_alive
  
         # facing_direction is where thrust is applied
         # velocity_direction determines how drag will be applied
@@ -150,9 +151,9 @@ class Player(pygame.sprite.Sprite):
                             random.randint(0, self.area.height))
         
         if random.random() > 0.95:
-            return False
+            self.remains_alive = False
         else:
-            return True
+            self.remains_alive = True
 
 
 class Shot(pygame.sprite.Sprite):
@@ -306,6 +307,11 @@ class Scoreboard():
         pass
 
 
+class Highscores():
+    def __init__(self):
+        pass
+
+
 class Buttons():
     def __init__(self, font_file, size, font_color, button_color, 
                  x_pos, y_pos, padding, *labels):
@@ -321,7 +327,6 @@ class Buttons():
         self.widest = 0
         self.highest = 0
 
-        # do all text first; get widest, then make buttons for each text item.
         for i, label in enumerate(labels):
             button_parts = {}
             button_text = self.font.render(label, True, self.font_color)
@@ -344,9 +349,6 @@ class Buttons():
             button_group['button'] = button
             button_group['button_rect'] = button_rect
         
-        self._position_rects()
-
-    def _position_rects(self):
         for i in range(len(self.buttons)):
             button_position = (self.x_pos, 
                                self.y_pos + 
