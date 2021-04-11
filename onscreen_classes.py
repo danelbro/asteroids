@@ -303,8 +303,52 @@ class Asteroid(pygame.sprite.Sprite):
 
 
 class Scoreboard():
-    def __init__(self):
-        pass
+    def __init__(self, font_file, size, font_color,
+                 pos, level, score):
+        self.font = pygame.font.Font(font_file, size)
+        self.font_color = font_color
+        self.pos = pos
+        self.level = level
+        self.score = score
+
+        self.level_text = self.font.render(f'Level {self.level}',
+                                           True, self.font_color)
+        self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
+        self.score_text = self.font.render(f'Score: {self.score}',
+                                           True, self.font_color)
+        self.score_pos = (self.pos[0], 
+                          self.pos[1] + 
+                          self.level_text_rect.height)
+        self.score_text_rect = self.score_text.get_rect(topleft=self.score_pos)
+                            
+
+    def update(self, level, score):
+        if level != self.level:
+            self.level = level
+            self.level_text = self.font.render(f'Level {self.level}', 
+                                               True, self.font_color)
+            self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
+        if score != self.score:
+            self.score = score
+            self.score_text = self.font.render(f'Score: {str(int(self.score))}',
+                                           True, self.font_color)
+            self.score_text_rect = self.score_text.get_rect(topleft=self.score_pos)
+
+    def clear(self, screen, background):
+        rects = []
+        rects.append(screen.blit(background, 
+                                 self.level_text_rect, self.level_text_rect))
+        rects.append(screen.blit(background, 
+                                 self.score_text_rect, self.score_text_rect))
+        return rects
+
+    def blit(self, screen):
+        rects = []
+        rects.append(screen.blit(self.level_text, self.level_text_rect))
+        rects.append(screen.blit(self.score_text, self.score_text_rect))
+        return rects
+
+        
 
 
 class Highscores():
@@ -316,7 +360,6 @@ class Buttons():
     def __init__(self, font_file, size, font_color, button_color, 
                  x_pos, y_pos, padding, *labels):
         self.font = pygame.font.Font(font_file, size)
-        self.size = size
         self.font_color = font_color
         self.button_color = button_color
         self.x_pos = x_pos

@@ -74,9 +74,9 @@ class GameState():
 
     def main(self):
         # initial variables
-        padding = 10
         base_score = 150
         self.score = 0
+        scoreboard_pos = (15, 10)
         player_pos = self.screen.get_rect().center
         player_dir = (0, -1)
         player_thrust = 16000
@@ -96,17 +96,11 @@ class GameState():
         min_asteroid_spawn_dist_to_player = 65
         breakaway_asteroid_velocity_scale = 1.2
         bullet_lifespan = 1.0
-    
-        # text setup
-        scoreboard_font = pygame.font.Font(self.font_file, 24)
-        level_text = scoreboard_font.render(str(level), True, self.font_color)
-        score_text = scoreboard_font.render(str(self.score), True, self.font_color)
-        level_text_pos = (padding, padding)
-        level_text_rect = level_text.get_rect(topleft=level_text_pos)
-        scoreboard_pos = (padding, padding * 2 + level_text_rect.height)
-        score_text_rect = score_text.get_rect(topleft=scoreboard_pos)
-            
-        # initialise sprite groups, player and asteroids
+                    
+        # initialise scoreboard, sprite groups, player and asteroids
+        scoreboard = Scoreboard(self.font_file, 24, self.font_color, 
+                                scoreboard_pos, level, self.score)
+
         players = pygame.sprite.RenderUpdates()
         asteroids = pygame.sprite.RenderUpdates()
         shots = pygame.sprite.RenderUpdates()
@@ -134,7 +128,6 @@ class GameState():
 
         while True:
             dirty_rects = []
-            dirty_rects.append(score_text_rect)
             fps_number = 1000 / self.clock.tick(self.fps)
             delta_time = self.clock.get_time() / 1000 # converted to seconds
 
@@ -198,8 +191,9 @@ class GameState():
                 player.turn('right')
                 
             # erase and update
-            self.screen.blit(self.background, level_text_rect, level_text_rect)
-            self.screen.blit(self.background, score_text_rect, score_text_rect)
+            [dirty_rects.append(dirty_rect) for dirty_rect in scoreboard.clear(self.screen, self.background)]
+            scoreboard.update(level, self.score)
+
             for sprite_group in allsprites:
                 sprite_group.clear(self.screen, self.background)
                 sprite_group.update(delta_time)
@@ -209,20 +203,12 @@ class GameState():
                     shots.remove(shot)
 
             # draw to screen
-            level_text, level_text_rect = update_text(level, "Level: ", 
-                                                      scoreboard_font,
-                                                      self.font_color, 
-                                                      level_text_pos)
-            score_text, score_text_rect = update_text(self.score, "Score: ",
-                                                      scoreboard_font, 
-                                                      self.font_color, 
-                                                      scoreboard_pos)
-            dirty_rects.append(self.screen.blit(level_text, level_text_rect))
-            dirty_rects.append(self.screen.blit(score_text, score_text_rect))
-            for sprite_group in allsprites:
-                group_dirty_rects = sprite_group.draw(self.screen)
-                for dirty_rect in group_dirty_rects:
-                    dirty_rects.append(dirty_rect)
+            [dirty_rects.append(dirty_rect) for dirty_rect 
+                                            in scoreboard.blit(self.screen)]
+            [dirty_rects.append(dirty_rect) for sprite_group 
+                                            in allsprites 
+                                            for dirty_rect 
+                                            in sprite_group.draw(self.screen)]
 
             pygame.display.update(dirty_rects)
 
