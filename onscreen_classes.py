@@ -302,8 +302,68 @@ class Asteroid(pygame.sprite.Sprite):
 
 
 class Scoreboard():
-    pass
+    def __init__(self):
+        pass
 
 
 class Buttons():
-    pass
+    def __init__(self, font_file, size, font_color, button_color, 
+                 x_pos, y_pos, padding, *labels):
+        self.font = pygame.font.Font(font_file, size)
+        self.size = size
+        self.font_color = font_color
+        self.button_color = button_color
+        self.x_pos = x_pos
+        self.y_pos = y_pos
+        self.padding = padding
+
+        self.buttons = []
+        self.widest = 0
+        self.highest = 0
+
+        # do all text first; get widest, then make buttons for each text item.
+        for i, label in enumerate(labels):
+            button_parts = {}
+            button_text = self.font.render(label, True, self.font_color)
+            button_text_rect = button_text.get_rect()
+            if button_text_rect.width > self.widest:
+                self.widest = button_text_rect.width
+            if button_text_rect.height > self.highest:
+                self.highest = button_text_rect.height
+            button_parts['label'] = label
+            button_parts['button_text'] = button_text
+            button_parts['button_text_rect'] = button_text_rect
+            self.buttons.append(button_parts)
+        
+        self.button_width = self.widest + self.padding * 2
+        self.button_height = self.highest + self.padding * 2
+        for button_group in self.buttons:
+            button_rect = pygame.Rect((0,0), (self.button_width, self.button_height))
+            button = pygame.Surface(button_rect.size).convert()
+            button.fill(self.button_color)
+            button_group['button'] = button
+            button_group['button_rect'] = button_rect
+        
+        self._position_rects()
+
+    def _position_rects(self):
+        for i in range(len(self.buttons)):
+            button_position = (self.x_pos, 
+                               self.y_pos + 
+                               (self.button_height * i) +
+                               (self.padding * i))
+            text_position = (self.x_pos, 
+                             self.y_pos + 
+                             (self.button_height * i) + 
+                             self.padding + 
+                             (self.padding * i))
+                
+            self.buttons[i]['button_rect'].midtop = button_position
+            self.buttons[i]['button_text_rect'].midtop = text_position
+
+    def blit(self, screen):
+        for button_group in self.buttons:
+            screen.blit(button_group['button'], button_group['button_rect'])
+            screen.blit(button_group['button_text'], button_group['button_text_rect'])
+
+        

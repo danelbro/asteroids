@@ -26,39 +26,21 @@ class GameState():
             return True
 
     def intro(self):
-        title_font = pygame.font.Font(self.font_file, 52)
-        button_font = pygame.font.Font(self.font_file, 28)
-
+        title_font = pygame.font.Font(self.font_file, 52)        
         title_text = title_font.render('Asteroids', True, self.font_color)
         title_rect = title_text.get_rect()
         title_rect.center = (self.screen.get_rect().centerx, 200)
 
-        new_game_text = button_font.render('New Game', True, self.font_color)
-        new_game_text_rect = new_game_text.get_rect()
-        new_game_text_rect.center = (self.screen.get_width() / 2, 400)
-        new_game_button_rect = new_game_text_rect.inflate(10,10)
-        new_game_button = pygame.Surface(new_game_button_rect.size).convert()
-        new_game_button.fill(self.button_color)
-
-        quit_text = button_font.render('Quit', True, self.font_color)
-        quit_text_rect = quit_text.get_rect()
-        quit_text_rect.center = (self.screen.get_width() / 2, 450)
-        quit_button_rect = pygame.rect.Rect(new_game_button_rect.x, 
-                                            quit_text_rect.y, 
-                                            new_game_button_rect.width, 
-                                            quit_text_rect.height)
-        quit_button = pygame.Surface(quit_button_rect.size).convert()
-        quit_button.fill(self.button_color)
+        buttons_panel = Buttons(self.font_file, 28, self.font_color, 
+                                self.button_color, self.screen.get_width() / 2, 
+                                400, 5, 'New Game', 'Quit')
 
         while True:
             self.clock.tick(self.fps)
             self.background.fill(self.bg_color)
             self.screen.blit(self.background, (0,0))
             self.screen.blit(title_text, title_rect)
-            self.screen.blit(new_game_button, new_game_button_rect)
-            self.screen.blit(new_game_text, new_game_text_rect)
-            self.screen.blit(quit_button, quit_button_rect)
-            self.screen.blit(quit_text, quit_text_rect)
+            buttons_panel.blit(self.screen)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -71,11 +53,15 @@ class GameState():
                     if event.key == pygame.K_RETURN:
                         return 'main'
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if new_game_button_rect.collidepoint(pygame.mouse.get_pos()):
-                        return 'main'
-                    if quit_button_rect.collidepoint(pygame.mouse.get_pos()):
-                        pygame.quit()
-                        sys.exit()
+                    mouse_pos = pygame.mouse.get_pos()
+                    for button in buttons_panel.buttons:
+                        if button['label'] == 'New Game':
+                            if button['button_rect'].collidepoint(mouse_pos):
+                                return 'main'
+                        elif button['label'] == 'Quit':
+                            if button['button_rect'].collidepoint(mouse_pos):
+                                pygame.quit()
+                                sys.exit()
 
             pygame.display.update()
         
@@ -237,35 +223,20 @@ class GameState():
             pygame.display.update(dirty_rects)
 
     def end(self):
-        heading_font = pygame.font.Font(self.font_file, 42)
-        score_font = pygame.font.Font(self.font_file, 52)
-        button_font = pygame.font.Font(self.font_file, 28)
-        
+        heading_font = pygame.font.Font(self.font_file, 42)        
         heading_text = heading_font.render('Game Over', True, self.font_color)
         heading_text_rect = heading_text.get_rect()
         heading_text_rect.center = (self.screen.get_width() / 2, 200)
 
+        score_font = pygame.font.Font(self.font_file, 52)
         score_text = score_font.render('Score: ' + str(int(self.score)), 
                                        True, self.font_color)
         score_text_rect = score_text.get_rect()
         score_text_rect.center = (self.screen.get_width() / 2, 300)
 
-        new_game_text = button_font.render('New Game', True, self.font_color)
-        new_game_text_rect = new_game_text.get_rect()
-        new_game_text_rect.center = (self.screen.get_width() / 2, 400)
-        new_game_button_rect = new_game_text_rect.inflate(10,10)
-        new_game_button = pygame.Surface(new_game_button_rect.size).convert()
-        new_game_button.fill(self.button_color)
-
-        quit_text = button_font.render('Quit', True, self.font_color)
-        quit_text_rect = quit_text.get_rect()
-        quit_text_rect.center = (self.screen.get_width() / 2, 450)
-        quit_button_rect = pygame.rect.Rect(new_game_button_rect.x, 
-                                            quit_text_rect.y, 
-                                            new_game_button_rect.width, 
-                                            quit_text_rect.height)
-        quit_button = pygame.Surface(quit_button_rect.size).convert()
-        quit_button.fill(self.button_color)
+        buttons_panel = Buttons(self.font_file, 28, self.font_color, 
+                                self.button_color, self.screen.get_width() / 2,
+                                400, 5, 'New Game', 'Quit')
 
         while True:
             self.clock.tick(self.fps)
@@ -273,28 +244,28 @@ class GameState():
             self.screen.blit(self.background, (0,0))
             self.screen.blit(heading_text, heading_text_rect)
             self.screen.blit(score_text, score_text_rect)
-            self.screen.blit(new_game_button, new_game_button_rect)
-            self.screen.blit(new_game_text, new_game_text_rect)
-            self.screen.blit(quit_button, quit_button_rect)
-            self.screen.blit(quit_text, quit_text_rect)
+            buttons_panel.blit(self.screen)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
-                if event.type == pygame.KEYDOWN:
+                elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
                         sys.exit()
                     if event.key == pygame.K_RETURN:
                         return 'main'
-                if event.type == pygame.MOUSEBUTTONDOWN:
+                elif event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
-                    if new_game_button.get_rect().collidepoint(mouse_pos):
-                        return 'main'
-                    elif quit_button.get_rect().collidepoint(mouse_pos):
-                        pygame.quit()
-                        sys.exit()
+                    for button in buttons_panel.buttons:
+                        if button['label'] == 'New Game':
+                            if button['button_rect'].collidepoint(mouse_pos):
+                                return 'main'
+                        elif button['label'] == 'Quit':
+                            if button['button_rect'].collidepoint(mouse_pos):
+                                pygame.quit()
+                                sys.exit()
             
             pygame.display.update()
 
