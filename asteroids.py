@@ -12,21 +12,22 @@ def main():
     screen = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Asteroids')
     clock = pygame.time.Clock()
+    background = pygame.Surface(screen.get_size()).convert()
     random.seed()
     done = False
 
     # common variables
     bg_color = (255, 255, 255)
+    button_color = (200, 200, 200)
     font_file = os.path.join('data', 'fonts', 'Nunito-Regular.ttf')
     font_color = (20, 20, 20)
     fps = 60
 
-    background = pygame.Surface(screen.get_size()).convert()
-    game_state = GameState()
+    game_state = GameState(screen, background, bg_color, clock,
+                           fps, font_color, font_file, button_color)
 
     while not done:
-        done = game_state.state_controller(screen, background, bg_color, 
-                                           clock, fps, font_color, font_file)
+        done = game_state.state_controller()
 
     pygame.quit()
     sys.exit()

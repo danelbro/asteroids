@@ -130,7 +130,6 @@ class Player(pygame.sprite.Sprite):
     # functions for responding to input
     def thrust(self):
         self.acceleration_magnitude = self.thrust_power
-        self.thrusting = True
 
     def turn(self, turn_dir):
         if turn_dir == 'left':
