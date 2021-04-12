@@ -1,6 +1,6 @@
 import pygame
 import sys
-from onscreen_classes import Player, Shot, Asteroid, Scoreboard, Buttons
+from onscreen_classes import Player, DeadPlayer, Shot, Asteroid, Scoreboard, Buttons
 
 class GameState():
     """A class to control the game state, containing functions for 
@@ -124,6 +124,7 @@ class GameState():
             None: the player quit the game
         """
         # initial variables
+        asteroids_spawned = False
         base_score = 150
         self.score = 0
         scoreboard_pos = (15, 10)
@@ -140,8 +141,8 @@ class GameState():
         level_friction = 0.1
         level = 1
         level_asteroids_offset = 3
-        min_asteroid_velocity = 100
-        max_asteroid_velocity = 150
+        min_asteroid_speed = 100
+        max_asteroid_speed = 150
         min_asteroid_direction_angle = 0.3
         min_asteroid_spawn_dist_to_player = 65
         breakaway_asteroid_velocity_scale = 1.2
@@ -152,9 +153,9 @@ class GameState():
                                 scoreboard_pos, level, self.score)
 
         players = pygame.sprite.RenderUpdates()
-        self.asteroids = pygame.sprite.RenderUpdates()
+        asteroids = pygame.sprite.RenderUpdates()
         shots = pygame.sprite.RenderUpdates()
-        allsprites = [players, self.asteroids, shots]
+        allsprites = [players, asteroids, shots]
 
         player = Player(player_pos, player_dir, player_thrust, player_mass,
                         player_turn_speed, level_friction, player_fire_rate,
@@ -183,29 +184,32 @@ class GameState():
 
 
             # check if the player got hit by an asteroid
-            colliding_asteroids = pygame.sprite.spritecollide(player, self.asteroids, False,
+            colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
                                                               collided=pygame.sprite.collide_mask)
             
             if len(colliding_asteroids) > 0 or not player.remains_alive:
+                dead_player = DeadPlayer()
+                self.end_screen_sprites = pygame.sprite.Group()
+                self.end_screen_sprites.add(dead_player, asteroids, shots)
                 return 'end'
 
             # check if any asteroids got hit
-            shot_asteroids = pygame.sprite.groupcollide(self.asteroids, shots, True, True,
+            shot_asteroids = pygame.sprite.groupcollide(asteroids, shots, True, True,
                                                         collided=pygame.sprite.collide_rect_ratio(0.75))
             
             for asteroid, shot_list in shot_asteroids.items():
                 self.score += int(base_score / asteroid.state)
                 new_asteroids = asteroid.hit(breakaway_asteroid_velocity_scale)
                 if new_asteroids is not None:
-                    self.asteroids.add(new_asteroids)
+                    asteroids.add(new_asteroids)
 
-            if len(self.asteroids) == 0:
+            if len(asteroids) == 0 and asteroids_spawned:
                 level += 1
                 shots.clear(self.screen, self.background)
                 shots.empty()
-                self.asteroids.add(Asteroid.spawn_asteroids(level + level_asteroids_offset, 
-                                                       min_asteroid_velocity,
-                                                       max_asteroid_velocity,
+                asteroids.add(Asteroid.spawn_asteroids(level + level_asteroids_offset, 
+                                                       min_asteroid_speed,
+                                                       max_asteroid_speed,
                                                        min_asteroid_direction_angle,
                                                        player.rect, 
                                                        min_asteroid_spawn_dist_to_player,
@@ -220,7 +224,7 @@ class GameState():
                     if event.key == pygame.K_ESCAPE:
                         return 'intro'
                     if event.key == pygame.K_LSHIFT:
-                        player.hyperspace(len(self.asteroids))
+                        player.hyperspace(len(asteroids))
                     if event.key == pygame.K_SPACE:
                         t = pygame.time.get_ticks()
                         shot = player.fire(t, bullet_lifespan)
@@ -286,11 +290,8 @@ class GameState():
             self.clock.tick(self.fps)
             delta_time = self.clock.get_time() / 1000
             self.screen.blit(self.background, (0,0))
-            self.asteroids.update(delta_time)
-            self.asteroids.draw(self.screen)
-            self.screen.blit(heading_text, heading_text_rect)
-            self.screen.blit(score_text, score_text_rect)
-            buttons_panel.blit(self.screen)
+            self.end_screen_sprites.update(delta_time)
+            self.end_screen_sprites.draw(self.screen)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:

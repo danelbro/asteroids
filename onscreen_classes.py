@@ -222,6 +222,14 @@ class Player(pygame.sprite.Sprite):
             self.remains_alive = True
 
 
+class DeadPlayer(pygame.sprite.Sprite):
+    """Class to represent the Player after they have been killed."""
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.Surface((0,0))
+        self.rect = self.image.get_rect()
+    
+    
 class Shot(pygame.sprite.Sprite):
     """Class to represent a shot fired by the Player. Subclass of 
     pygame.sprite.Sprite.
