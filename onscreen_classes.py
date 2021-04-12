@@ -586,8 +586,10 @@ class Buttons():
         self.button_width = self.widest + self.padding * 2
         self.button_height = self.highest + self.padding * 2
         for button_group in self.buttons:
-            button_rect = pygame.Rect((0,0), (self.button_width, self.button_height))
-            button = pygame.Surface(button_rect.size).convert()
+            button_rect = pygame.Rect((0,0), (self.button_width, 
+                                              self.button_height))
+            button = pygame.Surface(button_rect.size, 
+                                    flags=pygame.SRCALPHA).convert_alpha()
             button.fill(self.button_color)
             button_group['button'] = button
             button_group['button_rect'] = button_rect

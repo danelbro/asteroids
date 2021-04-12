@@ -18,7 +18,7 @@ def main():
 
     # common variables
     bg_color = (255, 255, 255)
-    button_color = (200, 200, 200)
+    button_color = (200, 200, 200, 150)
     font_file = os.path.join('data', 'fonts', 'Nunito-Regular.ttf')
     font_color = (20, 20, 20)
     fps = 60
