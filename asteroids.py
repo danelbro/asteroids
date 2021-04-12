@@ -4,7 +4,7 @@ import random
 import pygame
 from game_state import GameState
 
-def main():
+def main(): 
     # initialise pygame
     pygame.init()
     width = 1280

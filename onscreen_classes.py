@@ -5,22 +5,27 @@ import math
 from resource_functions import load_image, load_sound
 
 class Player(pygame.sprite.Sprite):
-    """A class to represent a controllable spaceship.
-
-    Attributes: images, folder_name, number_of_images, image, original, 
-                image_counter, mask, thrust_animation_speed, original, rect, 
-                area, initial_position, thrust_power, thrusting, mass, 
-                turn_speed, fluid_density, acceleration_magnitude, 
-                turn_amount, drag, fire_rate, last_shot_time, shot_power, 
-                remains_alive, facing_direction, velocity, velocity_direction
-
-    Methods: update, check_collide, calc_velocity, apply_turn, thrust,
-             turn, fire, hyperspace
+    """A class to represent a controllable spaceship, with a gun and
+    a hyperspace drive. Subclass of pygame.sprite.Sprite.
     """
-
     def __init__(self, player_pos, player_dir, thrust_power, 
                  mass, turn_speed, fluid_density, fire_rate, 
                  shot_power, animation_speed, folder_name, remains_alive):
+        """Constructs a Player object.
+
+        Args:
+            player_pos (tuple): initial position for the player
+            player_dir (tuple): initial direction that the player is facing
+            thrust_power (int): amount of force that thrusting adds
+            mass (int): mass of the spaceship, used for physics calculations
+            turn_speed (int): degrees the spaceship turns by per frame
+            fluid_density (float): used for calculating friction
+            fire_rate (int): max amount of shots per second
+            shot_power (int): speed of the bullets created by the gun
+            animation_speed (float): how fast the thrusting animation plays
+            folder_name (str): name of folder containing animation frames
+            remains_alive (bool): whether a hyperspace jumps killed the player
+        """
         super().__init__()
         self.images = []
         self.folder_name = os.path.join('data', 'sprites', folder_name)
@@ -62,6 +67,11 @@ class Player(pygame.sprite.Sprite):
 
     # movement functions
     def update(self, delta_time):
+        """Called every frame to move the player.
+
+        Args:
+            delta_time (float): the time since the last update
+        """
         # animate thrust
         if not self.thrusting:
             self.image_counter = 0
@@ -84,6 +94,14 @@ class Player(pygame.sprite.Sprite):
         self.turn_amount = 0
     
     def check_collide(self, newpos):
+        """Implements wraparound behaviour.
+
+        Args:
+            newpos (pygame.Rect): the rect of a player to be checked
+
+        Returns:
+            pygame.Rect: the rect after it's been checked
+        """
         if newpos.bottom < 0:
             newpos.top = self.area.height
                                 
@@ -99,6 +117,11 @@ class Player(pygame.sprite.Sprite):
         return newpos
 
     def calc_velocity(self, delta_time):
+        """Calculate velocity based on thrust and drag
+
+        Args:
+            delta_time (float): time since the last frame
+        """
         # calculate drag
         self.drag = (0.5 * self.fluid_density * 
                       self.velocity.magnitude_squared())
@@ -119,6 +142,11 @@ class Player(pygame.sprite.Sprite):
         self.velocity += self.acceleration * delta_time
 
     def apply_turn(self, delta_time):
+        """Change direction and rotate the image accordingly
+
+        Args:
+            delta_time (float): time since the last frame
+        """
         self.facing_direction = self.facing_direction.rotate(-self.turn_amount * delta_time)
 
         # rotate image
@@ -130,15 +158,31 @@ class Player(pygame.sprite.Sprite):
 
     # functions for responding to input
     def thrust(self):
+        """Causes thrust to be applied on this frame
+        """
         self.acceleration_magnitude = self.thrust_power
 
     def turn(self, turn_dir):
-        if turn_dir == 'left':
-            self.turn_amount = self.turn_speed
-        elif turn_dir == 'right':
-            self.turn_amount = -self.turn_speed
+        """Causes the player to turn a particular amount this frame.
+
+        Args:
+            turn_dir (int): positive 1 for left turn, 
+            negative 1 for right turn
+        """
+        self.turn_amount = self.turn_speed * turn_dir
 
     def fire(self, current_time, lifespan):
+        """Creates a Shot if allowed by the player's fire rate. The shot 
+        travels in the direction the player is currently facing.
+
+        Args:
+            current_time (int): 
+            lifespan (float): 
+
+        Returns:
+            None: not enough time has passed since the last shot
+            Shot: a shot is fired
+        """
         if current_time < self.last_shot_time + self.fire_rate:
             return
         elif current_time >= self.last_shot_time + self.fire_rate:
@@ -147,6 +191,13 @@ class Player(pygame.sprite.Sprite):
             return Shot(self.facing_direction, spawn_point, self.shot_power, lifespan)
 
     def hyperspace(self, number_of_asteroids):
+        """Moves the player to a random location. Sometimes kills the 
+        player; this is more likely if there are fewer asteroids on screen.
+
+        Args:
+            number_of_asteroids (int): the amount of asteroids currently 
+            on screen
+        """
         self.rect.center = (random.randint(0, self.area.width),
                             random.randint(0, self.area.height))
 
@@ -172,7 +223,18 @@ class Player(pygame.sprite.Sprite):
 
 
 class Shot(pygame.sprite.Sprite):
+    """Class to represent a shot fired by the Player. Subclass of 
+    pygame.sprite.Sprite.
+    """
     def __init__(self, direction, initial_position, power, lifespan):
+        """Constructs a Shot object.
+
+        Args:
+            direction (pygame.math.Vector2): direction the shot will travel
+            initial_position (pygame.math.Vector2): where the shot starts
+            power (int): the speed of the shot
+            lifespan (float): how long in seconds the shot will last
+        """
         super().__init__()
         self.folder_name = os.path.join('data', 'sprites', 'shot')
         self.image = load_image('shot.png', self.folder_name, -1)
@@ -190,18 +252,33 @@ class Shot(pygame.sprite.Sprite):
         self.lifespan = lifespan
 
     def update(self, delta_time):
+        """Called every frame to move the shot
+
+        Args:
+            delta_time (float): time since the last frame
+        """
         self.lifetime += delta_time
         change_position = self.velocity * delta_time
         self.rect = self.check_collide(self.rect.move(change_position.x, 
                                                       change_position.y))
 
     def rotate_image(self):
+        """Ensures the shot faces the direction it travels
+        """
         spin = -math.degrees(math.atan2(self.direction.y, 
                                         self.direction.x))
         self.image = pygame.transform.rotate(self.image, spin)
         self.rect = self.image.get_rect(center=self.rect.center)
         
     def check_collide(self, newpos):
+        """Implement wraparound behaviour.
+
+        Args:
+            newpos (pygame.Rect): the rect of a shot to be checked
+
+        Returns:
+            pygame.Rect: the rect after it's been checked
+        """
         if newpos.bottom < 0:
             newpos.top = self.area.height
                                 
@@ -218,6 +295,8 @@ class Shot(pygame.sprite.Sprite):
 
 
 class Asteroid(pygame.sprite.Sprite):
+    """Class to represent an Asteroid. Subclass of pygame.sprite.Sprite.
+    """
     def __init__(self, velocity, direction, pos=None, state=3):
         super().__init__()
         self.state = state
@@ -240,11 +319,24 @@ class Asteroid(pygame.sprite.Sprite):
         self.rect.center = pos
 
     def update(self, delta_time):
+        """Called every frame to move the asteroid.
+
+        Args:
+            delta_time (float): time since the last frame
+        """
         velocity_vector = self.velocity * self.direction * delta_time
         self.rect = self.check_collide(self.rect.move(velocity_vector))
         self.rotate_image(delta_time)
 
     def check_collide(self, newpos):
+        """Implement wraparound behaviour.
+
+        Args:
+            newpos (pygame.Rect): the rect of an asteroid to be checked
+
+        Returns:
+            pygame.Rect: the rect after it's been checked
+        """
         if newpos.bottom < 0:
             newpos.top = self.area.height
                                 
@@ -260,6 +352,11 @@ class Asteroid(pygame.sprite.Sprite):
         return newpos
         
     def rotate_image(self, delta_time):
+        """Rotates the image by a set amount every frame.
+
+        Args:
+            delta_time (float): time since the last frame
+        """
         self.spin += self.spin_amount * delta_time
         if self.spin >= 360 or self.spin <= -360:
             self.spin = 0
@@ -270,6 +367,19 @@ class Asteroid(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
     def hit(self, velocity_scale):
+        """Returns two new asteroids if the asteroid that got hit is large
+        enough. If not, returns None.
+
+        Args:
+            velocity_scale (float): how much faster the new asteroids move
+            than the parent asteroid.
+
+        Returns:
+            list[Asteroid]: the two new asteroids, if the parent is large 
+            enough
+            None: this is already the smallest asteroid size, so no child
+            asteroids are created.
+        """
         if self.state > 1:
             new_asteroids_state = self.state - 1
             new_asteroid_1 = Asteroid(self.velocity * velocity_scale, 
@@ -280,18 +390,36 @@ class Asteroid(pygame.sprite.Sprite):
                                       self.direction.rotate(-90),
                                       self.rect.center,
                                       new_asteroids_state)
-            return [new_asteroid_1, new_asteroid_2]
+            return [new_asteroid_1, new_asteroid_2]             
         else: 
             return
 
     @staticmethod
-    def spawn_asteroids(number_of_asteroids, min_velocity, 
-                    max_velocity, min_angle, player_pos, 
-                    min_player_distance, width, height):
+    def spawn_asteroids(number_of_asteroids, min_speed, 
+                        max_speed, min_angle, player_pos, 
+                        min_player_distance, width, height):
+        """Randomly generates new asteroids.
+
+        Args:
+            number_of_asteroids (int): how many asteroids to spawn
+            min_speed (int): minimum speed for an asteroid
+            max_speed (int): maximum speed for an asteroid
+            min_angle (float): minimum magnitude for x and y on a unit
+            circle to determine the angle of the asteroid's velocity
+            player_pos (pygame.Rect): the position of the player (to 
+            avoid on spawn)
+            min_player_distance (int): minimum distance from the 
+            player's position
+            width (int): width of the screen
+            height (int): height of the screen
+
+        Returns:
+            list[Asteroid]: the asteroids that were spawned
+        """
         asteroid_list = []
         while number_of_asteroids > 0:
             # get a random acceptable velocity for this asteroid
-            asteroid_velocity = random.randint(min_velocity, max_velocity)
+            asteroid_speed = random.randint(min_speed, max_speed)
 
             # get a random acceptable direction for this asteroid
             asteroid_direction = pygame.math.Vector2(0, 0)
@@ -309,7 +437,7 @@ class Asteroid(pygame.sprite.Sprite):
                 position_y = random.randint(0, height)
             position = pygame.math.Vector2(position_x, position_y)
 
-            asteroid_list.append(Asteroid(asteroid_velocity, 
+            asteroid_list.append(Asteroid(asteroid_speed, 
                                         asteroid_direction, 
                                         position))
             number_of_asteroids -= 1
@@ -318,8 +446,21 @@ class Asteroid(pygame.sprite.Sprite):
 
 
 class Scoreboard():
+    """Class that represents a scoreboard to be drawn. Shows level, score
+    and remaining lives.
+    """
     def __init__(self, font_file, size, font_color,
                  pos, level, score):
+        """Constructs a Scoreboard object.
+
+        Args:
+            font_file (str): path to .ttf font file
+            size (int): font size
+            font_color (tuple): font colour
+            pos (tuple): top left point of scoreboard
+            level (int): starting level
+            score (int): starting score
+        """
         self.font = pygame.font.Font(font_file, size)
         self.font_color = font_color
         self.pos = pos
@@ -329,7 +470,7 @@ class Scoreboard():
         self.level_text = self.font.render(f'Level {self.level}',
                                            True, self.font_color)
         self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
-        self.score_text = self.font.render(f'Score: {self.score}',
+        self.score_text = self.font.render(f'Score: {str(self.score)}',
                                            True, self.font_color)
         self.score_pos = (self.pos[0], 
                           self.pos[1] + 
@@ -338,6 +479,13 @@ class Scoreboard():
                             
 
     def update(self, level, score):
+        """Called every frame. Updates level or score if they are different
+        to those stored in the scoreboard.
+
+        Args:
+            level (int): the new level to be checked
+            score (int): the new score to be checked
+        """
         if level != self.level:
             self.level = level
             self.level_text = self.font.render(f'Level {self.level}', 
@@ -345,11 +493,21 @@ class Scoreboard():
             self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
         if score != self.score:
             self.score = score
-            self.score_text = self.font.render(f'Score: {str(int(self.score))}',
+            self.score_text = self.font.render(f'Score: {str(self.score)}',
                                            True, self.font_color)
             self.score_text_rect = self.score_text.get_rect(topleft=self.score_pos)
 
     def clear(self, screen, background):
+        """Called every frame. Erases the scoreboard so it can be redrawn.
+
+        Args:
+            screen (pygame.Surface): the screen the scoreboard is on
+            background (pygame.Surface): the background to draw over the 
+            scoreboard to erase it
+
+        Returns:
+            list[pygame.Rect]: a list of 'dirty rects'
+        """
         rects = []
         rects.append(screen.blit(background, 
                                  self.level_text_rect, self.level_text_rect))
@@ -358,22 +516,47 @@ class Scoreboard():
         return rects
 
     def blit(self, screen):
+        """Called every frame. Draws the scoreboard to the screen
+
+        Args:
+            screen (pygame.Surface): the screen to be drawn on
+
+        Returns:
+            list[pygame.Rect]: a list of 'dirty rects'
+        """
         rects = []
         rects.append(screen.blit(self.level_text, self.level_text_rect))
         rects.append(screen.blit(self.score_text, self.score_text_rect))
         return rects
 
-        
-
 
 class Highscores():
+    """A class to represent a list of highscores to be drawn to the screen 
+    after the game is over. 
+    """
     def __init__(self):
         pass
 
 
 class Buttons():
+    """A class to represent a panel of buttons for a menu. Dynamically
+    positions buttons based on number of labels requested.
+    """
+    font: pygame.font.Font
     def __init__(self, font_file, size, font_color, button_color, 
                  x_pos, y_pos, padding, *labels):
+        """Constructs a Buttons object.
+
+        Args:
+            font_file (str): path to .ttf font file
+            size (int): font size
+            font_color (tuple): font colour
+            button_color (tuple): button colour
+            x_pos (int): desired top left x position for the panel
+            y_pos (int): desired top left y position for the panel
+            padding (int): padding between buttons and between button
+            edge and text
+        """
         self.font = pygame.font.Font(font_file, size)
         self.font_color = font_color
         self.button_color = button_color
@@ -385,6 +568,7 @@ class Buttons():
         self.widest = 0
         self.highest = 0
 
+        # render labels and get the maximum width and height. 
         for i, label in enumerate(labels):
             button_parts = {}
             button_text = self.font.render(label, True, self.font_color)
@@ -398,6 +582,7 @@ class Buttons():
             button_parts['button_text_rect'] = button_text_rect
             self.buttons.append(button_parts)
         
+        # render buttons
         self.button_width = self.widest + self.padding * 2
         self.button_height = self.highest + self.padding * 2
         for button_group in self.buttons:
@@ -407,6 +592,7 @@ class Buttons():
             button_group['button'] = button
             button_group['button_rect'] = button_rect
         
+        # position buttons and text
         for i in range(len(self.buttons)):
             button_position = (self.x_pos, 
                                self.y_pos + 
@@ -422,6 +608,11 @@ class Buttons():
             self.buttons[i]['button_text_rect'].midtop = text_position
 
     def blit(self, screen):
+        """Called every frame. Draws Buttons to screen.
+
+        Args:
+            screen (pygame.Surface): screen to draw buttons onto.
+        """
         for button_group in self.buttons:
             screen.blit(button_group['button'], button_group['button_rect'])
             screen.blit(button_group['button_text'], button_group['button_text_rect'])

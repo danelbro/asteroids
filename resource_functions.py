@@ -2,6 +2,21 @@ import os
 import pygame
 
 def load_image(name, folder_name, colorkey=None):
+    """Utility function to load images.
+
+    Args:
+        name (str): name of the image to be loaded 
+        folder_name (str): name of the folder where the image is saved
+        colorkey (int, tuple, optional): Set to -1 to get colorkey from 
+        top left of image. Otherwise set to a tuple representing the color 
+        to be keyed. Defaults to None, use if you don't need a colorkey.
+
+    Raises:
+        SystemExit: if the image cannot be loaded
+
+    Returns:
+        pygame.Surface: a pygame Surface object representing the image
+    """
     fullname = os.path.join(folder_name, name)
     try:
         image = pygame.image.load(fullname).convert()
@@ -16,6 +31,17 @@ def load_image(name, folder_name, colorkey=None):
 
 
 def load_sound(name):
+    """Utility function to load sounds
+
+    Args:
+        name (str): name of the sound file to be loaded
+
+    Raises:
+        SystemExit: if the sound cannot be loaded
+
+    Returns:
+        pygame.mixer.Sound: pygame Sound object representing the sound
+    """
     class NoneSound:
         def play(self): pass
     if not pygame.mixer:
@@ -27,9 +53,3 @@ def load_sound(name):
         print('Cannot load sound:', fullname)
         raise SystemExit(message)
     return sound
-
-
-def update_text(number, title_string, font, font_color, pos):
-    text = font.render(title_string + str(int(number)), True, font_color)
-    text_rect = text.get_rect(topleft=pos)
-    return text, text_rect

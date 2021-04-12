@@ -1,11 +1,27 @@
 import pygame
 import sys
 from onscreen_classes import Player, Shot, Asteroid, Scoreboard, Buttons
-from resource_functions import load_image, load_sound, update_text
 
 class GameState():
+    """A class to control the game state, containing functions for 
+    different game states.
+    """
     def __init__(self, screen, background, bg_color, 
                  clock, fps, font_color, font_file, button_color):
+        """Construct a GameState object.
+
+        Args:
+            screen (pygame.Surface): the surface where the game takes place
+            background (pygame.Surface): the background of the game, used for
+            clearing the screen
+            bg_color (tuple): default background colour, used for clearing 
+            the screen
+            clock (pygame.time.Clock): the game clock
+            fps (int): maximum framerate
+            font_color (tuple): colour for text
+            font_file (str): a path to a .ttf font file
+            button_color (tuple): colour for buttons
+        """
         self.state_dict = {'intro': self.intro, 
                            'main': self.main, 
                            'options': self.options,
@@ -22,11 +38,26 @@ class GameState():
         self.button_color = button_color
 
     def state_controller(self):
+        """Runs the appropriate function based on the current game state
+
+        Returns:
+            bool: represents whether the game is finished.
+        """
         self.state = self.state_dict[self.state]()
         if self.state is None:
             return True
+        else:
+            return False
 
     def intro(self):
+        """Main menu/intro screen. Presents a title and menu to the user.
+        The menu consists of buttons which start a new game, go to the 
+        options menu, and quit the game.
+
+        Returns:
+            str: a new game state
+            None: the player quit the game
+        """
         title_font = pygame.font.Font(self.font_file, 52)        
         title_text = title_font.render('Asteroids', True, self.font_color)
         title_rect = title_text.get_rect()
@@ -67,9 +98,31 @@ class GameState():
             pygame.display.update()
 
     def options(self):
+        """An options menu. Presents the user with a number of game options 
+        to change.
+
+        Returns:
+            str: a new game state
+            None: the player quit the game
+        """
         return None
 
     def main(self):
+        """The main game loop. The player controls a spaceship and shoots at
+        asteroids. If the player is hit by an asteroid, they lose a life.
+        Once they are out of lives, the game ends. The player can also use
+        a hyperspace jump to get out of a tight spot, at the risk of 
+        immediately dying or landing on an asteroid. Large asteroids break
+        apart to form new asteroids. The player earns more points for 
+        destroying smaller asteroids. When all asteroids are cleared, a new
+        level starts. Each level spawns more asteroids than the previous 
+        level. Eventually enemy flying saucers which shoot at the player 
+        appear.
+
+        Returns:
+            str: a new game state
+            None: the player quit the game
+        """
         # initial variables
         base_score = 150
         self.score = 0
@@ -141,7 +194,7 @@ class GameState():
                                                         collided=pygame.sprite.collide_rect_ratio(0.75))
             
             for asteroid, shot_list in shot_asteroids.items():
-                self.score += base_score / asteroid.state
+                self.score += int(base_score / asteroid.state)
                 new_asteroids = asteroid.hit(breakaway_asteroid_velocity_scale)
                 if new_asteroids is not None:
                     asteroids.add(new_asteroids)
@@ -158,6 +211,7 @@ class GameState():
                                                        min_asteroid_spawn_dist_to_player,
                                                        self.screen.get_width(), 
                                                        self.screen.get_height()))
+                Asteroid.sp
             
             # handle input
             for event in pygame.event.get():
@@ -182,9 +236,9 @@ class GameState():
                 player.thrust()
                 player.thrusting = True
             if keys[pygame.K_LEFT]:
-                player.turn('left')
+                player.turn(1)
             if keys[pygame.K_RIGHT]:
-                player.turn('right')
+                player.turn(-1)
                 
             # erase and update
             scoreboard_clear_rects = [dirty_rect for dirty_rect in scoreboard.clear(self.screen, self.background)]
@@ -208,6 +262,16 @@ class GameState():
             pygame.display.update(dirty_rects)
 
     def end(self):
+        """The game over screen. Presents a message, score, list of 
+        top 5 highscores, and a menu to the player. If the score is higher
+        than one of the presented highscores, ask the player to enter their
+        name to save their highscore. The menu has buttons to start a new 
+        game, return to the main menu, or quit.
+
+        Returns:
+            str: a new game state
+            None: the player quit the game.
+        """
         heading_font = pygame.font.Font(self.font_file, 42)        
         heading_text = heading_font.render('Game Over', True, self.font_color)
         heading_text_rect = heading_text.get_rect()
