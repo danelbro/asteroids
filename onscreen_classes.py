@@ -149,8 +149,23 @@ class Player(pygame.sprite.Sprite):
     def hyperspace(self, number_of_asteroids):
         self.rect.center = (random.randint(0, self.area.width),
                             random.randint(0, self.area.height))
+
+        max_percentage = 0.98
+        min_percentage = 0.75
+        asteroid_max = 30
+        asteroid_min = 1
         
-        if random.random() > 0.95:
+        def normalize(x, x_min, x_max):
+            return x - x_min / x_max - x_min
+        
+        asteroids_normalized = normalize(number_of_asteroids, asteroid_min, 
+                                         asteroid_max)
+        
+        def lerp(min, max, t):
+            return (1 - t) * min + t * max
+        
+        if random.random() > lerp(min_percentage, max_percentage, 
+                                  asteroids_normalized):
             self.remains_alive = False
         else:
             self.remains_alive = True
