@@ -616,5 +616,3 @@ class Buttons():
         for button_group in self.buttons:
             screen.blit(button_group['button'], button_group['button_rect'])
             screen.blit(button_group['button_text'], button_group['button_text_rect'])
-
-        
