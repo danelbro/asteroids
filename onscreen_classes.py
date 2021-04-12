@@ -391,7 +391,7 @@ class Asteroid(pygame.sprite.Sprite):
         
         self.spin = 0
         self.spin_amount = 0
-        while math.fabs(self.spin_amount < 100):
+        while math.fabs(self.spin_amount) < 100:
             self.spin_amount = random.randint(-200, 200)
             
         self.velocity = velocity
