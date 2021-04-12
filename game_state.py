@@ -211,7 +211,6 @@ class GameState():
                                                        min_asteroid_spawn_dist_to_player,
                                                        self.screen.get_width(), 
                                                        self.screen.get_height()))
-                Asteroid.sp
             
             # handle input
             for event in pygame.event.get():
