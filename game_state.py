@@ -45,12 +45,10 @@ class GameState():
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+                    return None
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                        sys.exit()
+                        return None
                     if event.key == pygame.K_RETURN:
                         return 'main'
                 elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -64,8 +62,7 @@ class GameState():
                                 return 'options'
                         elif button['label'] == 'Quit':
                             if button['button_rect'].collidepoint(mouse_pos):
-                                pygame.quit()
-                                sys.exit()
+                                return None
 
             pygame.display.update()
 
@@ -80,7 +77,7 @@ class GameState():
         player_pos = self.screen.get_rect().center
         player_dir = (0, -1)
         player_thrust = 16000
-        player_mass = 48
+        player_mass = 32
         player_turn_speed = 500
         player_fire_rate = 10
         player_shot_power = 800
@@ -165,8 +162,7 @@ class GameState():
             # handle input
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+                    return None
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         return 'intro'
@@ -191,7 +187,7 @@ class GameState():
                 player.turn('right')
                 
             # erase and update
-            [dirty_rects.append(dirty_rect) for dirty_rect in scoreboard.clear(self.screen, self.background)]
+            scoreboard_clear_rects = [dirty_rect for dirty_rect in scoreboard.clear(self.screen, self.background)]
             scoreboard.update(level, self.score)
 
             for sprite_group in allsprites:
@@ -203,12 +199,11 @@ class GameState():
                     shots.remove(shot)
 
             # draw to screen
-            [dirty_rects.append(dirty_rect) for dirty_rect 
-                                            in scoreboard.blit(self.screen)]
-            [dirty_rects.append(dirty_rect) for sprite_group 
-                                            in allsprites 
-                                            for dirty_rect 
-                                            in sprite_group.draw(self.screen)]
+            scoreboard_blit_rects = [dirty_rect for dirty_rect in scoreboard.blit(self.screen)]
+            sprite_blit_rects = [dirty_rect for sprite_group in allsprites 
+                                            for dirty_rect in sprite_group.draw(self.screen)]
+            
+            dirty_rects = scoreboard_clear_rects + scoreboard_blit_rects + sprite_blit_rects
 
             pygame.display.update(dirty_rects)
 
@@ -238,12 +233,10 @@ class GameState():
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
+                    return None
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        pygame.quit()
-                        sys.exit()
+                        return None
                     if event.key == pygame.K_RETURN:
                         return 'main'
                 elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -257,9 +250,6 @@ class GameState():
                                 return 'intro'
                         elif button['label'] == 'Quit':
                             if button['button_rect'].collidepoint(mouse_pos):
-                                pygame.quit()
-                                sys.exit()
+                                return None
             
             pygame.display.update()
-
-        return None
