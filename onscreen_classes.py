@@ -258,6 +258,8 @@ class Shot(pygame.sprite.Sprite):
             delta_time (float): time since the last frame
         """
         self.lifetime += delta_time
+        if self.lifetime >= self.lifespan:
+            self.kill()
         change_position = self.velocity * delta_time
         self.rect = self.check_collide(self.rect.move(change_position.x, 
                                                       change_position.y))

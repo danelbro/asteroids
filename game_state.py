@@ -247,10 +247,6 @@ class GameState():
                 sprite_group.clear(self.screen, self.background)
                 sprite_group.update(delta_time)
 
-            for shot in shots.sprites():
-                if shot.lifetime >= shot.lifespan:
-                    shots.remove(shot)
-
             # draw to screen
             scoreboard_blit_rects = [dirty_rect for dirty_rect in scoreboard.blit(self.screen)]
             sprite_blit_rects = [dirty_rect for sprite_group in allsprites 
