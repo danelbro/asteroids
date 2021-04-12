@@ -124,6 +124,7 @@ class GameState():
             None: the player quit the game
         """
         # initial variables
+        time_to_start = 500
         asteroids_spawned = False
         base_score = 150
         self.score = 0
@@ -137,6 +138,8 @@ class GameState():
         player_shot_power = 800
         player_animation_speed = 0.4
         player_folder_name = 'player'
+        dead_player_folder_name = 'dead_player'
+        dead_player_animation_speed = 0.12
         player_remains_alive = True
         level_friction = 0.1
         level = 1
@@ -144,7 +147,7 @@ class GameState():
         min_asteroid_speed = 100
         max_asteroid_speed = 150
         min_asteroid_direction_angle = 0.3
-        min_asteroid_spawn_dist_to_player = 65
+        min_asteroid_spawn_dist_to_player = 75
         breakaway_asteroid_velocity_scale = 1.2
         bullet_lifespan = 1.0
                     
@@ -163,32 +166,45 @@ class GameState():
                         player_folder_name, player_remains_alive)
         players.add(player)
 
-        self.asteroids.add(Asteroid.spawn_asteroids(level + level_asteroids_offset,
-                                               min_asteroid_velocity, 
-                                               max_asteroid_velocity,
-                                               min_asteroid_direction_angle, 
-                                               player.rect, 
-                                               min_asteroid_spawn_dist_to_player, 
-                                               self.screen.get_width(), 
-                                               self.screen.get_height()))
-
         # initial blit/update
         self.background.fill(self.bg_color)
         self.screen.blit(self.background, (0, 0))
         pygame.display.update()
+        start_time = pygame.time.get_ticks()
 
         while True:
             dirty_rects = []
-            fps_number = 1000 / self.clock.tick(self.fps)
+            self.clock.tick(self.fps)
+            t = pygame.time.get_ticks()            
             delta_time = self.clock.get_time() / 1000 # converted to seconds
-
+            current_time = pygame.time.get_ticks()
+            
+            if (not asteroids_spawned and 
+                current_time - start_time >= time_to_start):
+                asteroids.add(Asteroid.spawn_asteroids(level + level_asteroids_offset,
+                                                       min_asteroid_speed,
+                                                       max_asteroid_speed,
+                                                       min_asteroid_direction_angle,
+                                                       player.rect,
+                                                       min_asteroid_spawn_dist_to_player,
+                                                       self.screen.get_width(),
+                                                       self.screen.get_height()))
+                asteroids_spawned = True
 
             # check if the player got hit by an asteroid
             colliding_asteroids = pygame.sprite.spritecollide(player, asteroids, False,
                                                               collided=pygame.sprite.collide_mask)
             
             if len(colliding_asteroids) > 0 or not player.remains_alive:
-                dead_player = DeadPlayer()
+                dead_player = DeadPlayer(dead_player_folder_name, 
+                                         dead_player_animation_speed,
+                                         player.rect.center,
+                                         player.facing_direction,
+                                         player.velocity,
+                                         player.velocity_direction,
+                                         level_friction,
+                                         player.mass,
+                                         self.screen)
                 self.end_screen_sprites = pygame.sprite.Group()
                 self.end_screen_sprites.add(dead_player, asteroids, shots)
                 return 'end'
@@ -226,8 +242,7 @@ class GameState():
                     if event.key == pygame.K_LSHIFT:
                         player.hyperspace(len(asteroids))
                     if event.key == pygame.K_SPACE:
-                        t = pygame.time.get_ticks()
-                        shot = player.fire(t, bullet_lifespan)
+                        shot = player.fire(current_time, bullet_lifespan)
                         if shot is not None:
                             shots.add(shot)
                 elif event.type == pygame.KEYUP:
@@ -285,33 +300,47 @@ class GameState():
         buttons_panel = Buttons(self.font_file, 28, self.font_color, 
                                 self.button_color, self.screen.get_width() / 2,
                                 400, 5, 'New Game', 'Main Menu', 'Quit')
+        
+        time_to_start = 1000
+        menu_showing = False
+        start_time = pygame.time.get_ticks()
 
         while True:
             self.clock.tick(self.fps)
+            current_time = pygame.time.get_ticks()
             delta_time = self.clock.get_time() / 1000
             self.screen.blit(self.background, (0,0))
             self.end_screen_sprites.update(delta_time)
             self.end_screen_sprites.draw(self.screen)
+            
+            if (not menu_showing and
+                current_time - start_time >= time_to_start):
+                menu_showing = True
+                
+            if menu_showing:
+                self.screen.blit(heading_text, heading_text_rect)
+                self.screen.blit(score_text, score_text_rect)
+                buttons_panel.blit(self.screen)
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return None
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
                         return None
-                    if event.key == pygame.K_RETURN:
-                        return 'main'
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
-                    for button in buttons_panel.buttons:
-                        if button['label'] == 'New Game':
-                            if button['button_rect'].collidepoint(mouse_pos):
-                                return 'main'
-                        elif button['label'] == 'Main Menu':
-                            if button['button_rect'].collidepoint(mouse_pos):
-                                return 'intro'
-                        elif button['label'] == 'Quit':
-                            if button['button_rect'].collidepoint(mouse_pos):
-                                return None
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            return None
+                        if event.key == pygame.K_RETURN:
+                            return 'main'
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        mouse_pos = pygame.mouse.get_pos()
+                        for button in buttons_panel.buttons:
+                            if button['label'] == 'New Game':
+                                if button['button_rect'].collidepoint(mouse_pos):
+                                    return 'main'
+                            elif button['label'] == 'Main Menu':
+                                if button['button_rect'].collidepoint(mouse_pos):
+                                    return 'intro'
+                            elif button['label'] == 'Quit':
+                                if button['button_rect'].collidepoint(mouse_pos):
+                                    return None
             
             pygame.display.update()

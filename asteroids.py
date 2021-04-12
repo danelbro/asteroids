@@ -7,7 +7,7 @@ from game_state import GameState
 def main(): 
     # initialise pygame
     pygame.init()
-    width = 1280
+    width = 960
     height = 720
     screen = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Asteroids')

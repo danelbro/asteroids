@@ -79,15 +79,14 @@ class Player(pygame.sprite.Sprite):
             self.image_counter += self.thrust_animation_speed
             if self.image_counter >= self.number_of_images:
                 self.image_counter = 0
-        self.image = self.images[int(self.image_counter)]
-        self.original = self.image
+        self.original = self.images[int(self.image_counter)]
         
         # rotate and move
         self.apply_turn(delta_time)
         self.calc_velocity(delta_time)
         change_position = self.velocity * delta_time
-        self.rect = self.check_collide((self.rect.move(change_position.x, 
-                                                       change_position.y)))
+        self.rect = self.check_collide(self.rect.move(change_position.x, 
+                                                      change_position.y))
 
         # reset
         self.acceleration_magnitude = 0
@@ -224,12 +223,83 @@ class Player(pygame.sprite.Sprite):
 
 class DeadPlayer(pygame.sprite.Sprite):
     """Class to represent the Player after they have been killed."""
-    def __init__(self):
+    def __init__(self, folder_name, animation_speed, pos, direction, 
+                 velocity, vel_direction, fluid_density, mass, screen):
         super().__init__()
-        self.image = pygame.Surface((0,0))
-        self.rect = self.image.get_rect()
+        self.images = []
+        self.folder_name = os.path.join('data', 'sprites', folder_name)
+        self.number_of_images = len(os.listdir(self.folder_name))
+        for i in range(self.number_of_images):
+            image_name = folder_name + '-' + str(i) + '.png'
+            self.images.append(load_image(image_name, self.folder_name,
+                                          colorkey=(255,255,255)))
+        self.image = self.images[0]
+        self.original = self.image
+        self.direction = direction
+        self.rect = self.image.get_rect(center=pos)
+        self.rotate_image()
+        self.animation_speed = animation_speed
+        self.image_counter = 0
+        self.velocity = velocity
+        self.vel_direction = vel_direction
+        self.fluid_density = fluid_density
+        self.mass = mass
+        self.area = screen.get_rect()
+        
+    def update(self, delta_time):
+        self.image_counter += self.animation_speed
+        if self.image_counter >= self.number_of_images:
+            self.kill()
+        else:
+            self.original = self.images[int(self.image_counter)]
+            self.rotate_image()
+            self.calc_velocity(delta_time)
+            change_position = self.velocity * delta_time
+            self.rect = self.check_collide(self.rect.move(change_position.x,
+                                                          change_position.y))
+            
+    def rotate_image(self):
+        direction_angle = -math.degrees(math.atan2(self.direction.y, 
+                                                  self.direction.x))
+        self.image = pygame.transform.rotate(self.original, direction_angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
     
+    def calc_velocity(self, delta_time):
+        drag = 0.5 * self.fluid_density * self.velocity.magnitude_squared()
+        if self.velocity.magnitude() != 0:
+            self.velocity_direction = self.velocity.normalize()
+        else:
+            self.velocity_direction = pygame.math.Vector2(0, 0)
+            
+        self.total_forces = drag * - self.velocity_direction
+        self.acceleration = self.total_forces / self.mass
+        
+        self.velocity += self.acceleration * delta_time
     
+    def check_collide(self, newpos):
+        """Implements wraparound behaviour.
+
+        Args:
+            newpos (pygame.Rect): the rect of a player to be checked
+
+        Returns:
+            pygame.Rect: the rect after it's been checked
+        """
+        if newpos.bottom < 0:
+            newpos.top = self.area.height
+                                
+        elif newpos.top > self.area.height:
+            newpos.bottom = 0
+                
+        elif newpos.right < 0:
+            newpos.left = self.area.width
+                
+        elif newpos.left > self.area.width:
+            newpos.right = 0
+        
+        return newpos
+    
+
 class Shot(pygame.sprite.Sprite):
     """Class to represent a shot fired by the Player. Subclass of 
     pygame.sprite.Sprite.
@@ -307,11 +377,11 @@ class Shot(pygame.sprite.Sprite):
 class Asteroid(pygame.sprite.Sprite):
     """Class to represent an Asteroid. Subclass of pygame.sprite.Sprite.
     """
-    def __init__(self, velocity, direction, pos=None, state=3):
+    def __init__(self, velocity, direction, image_number, pos=None, state=3):
         super().__init__()
         self.state = state
         self.folder_name = os.path.join('data', 'sprites', 'asteroid')
-        self.image = load_image(f'asteroid-{self.state}.png', 
+        self.image = load_image(f'asteroid-{self.state}-{image_number}.png',
                                 self.folder_name, -1)
         self.rect = self.image.get_rect()
         self.original = self.image
@@ -392,12 +462,19 @@ class Asteroid(pygame.sprite.Sprite):
         """
         if self.state > 1:
             new_asteroids_state = self.state - 1
+            first_image_number = random.randint(0, 2)
+            second_image_number = first_image_number
+            while second_image_number == first_image_number:
+                second_image_number = random.randint(0, 2)
+                
             new_asteroid_1 = Asteroid(self.velocity * velocity_scale, 
                                       self.direction.rotate(90),
+                                      first_image_number,
                                       self.rect.center,
                                       new_asteroids_state)
             new_asteroid_2 = Asteroid(self.velocity * velocity_scale,
                                       self.direction.rotate(-90),
+                                      second_image_number,
                                       self.rect.center,
                                       new_asteroids_state)
             return [new_asteroid_1, new_asteroid_2]             
@@ -446,10 +523,13 @@ class Asteroid(pygame.sprite.Sprite):
                 position_x = random.randint(0, width)
                 position_y = random.randint(0, height)
             position = pygame.math.Vector2(position_x, position_y)
-
+            
+            image_number = random.randint(0,2)
+            
             asteroid_list.append(Asteroid(asteroid_speed, 
-                                        asteroid_direction, 
-                                        position))
+                                          asteroid_direction, 
+                                          image_number,
+                                          position))
             number_of_asteroids -= 1
 
         return asteroid_list
