@@ -1,8 +1,11 @@
 import os
+os.environ['PYGAME_FREETYPE'] = "1"
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
 import sys
 import random
 import pygame
 from game_state import GameState
+from resource_functions import load_image
 
 def main(): 
     # initialise pygame

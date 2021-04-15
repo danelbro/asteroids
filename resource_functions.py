@@ -61,3 +61,6 @@ def draw_all(sprites, screen, background, *args):
             sprite_group.update(*args)
     return [dirty_rect for sprite_group in sprites
                        for dirty_rect in sprite_group.draw(screen)]
+    
+def thousands_separator(n):
+    return "{:,}".format(n)

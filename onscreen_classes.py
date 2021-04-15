@@ -1,8 +1,9 @@
 import pygame
 import random
 import os
+import re
 import math
-from resource_functions import load_image, load_sound
+from resource_functions import load_image, load_sound, thousands_separator
 
 class Player(pygame.sprite.Sprite):
     """A class to represent a controllable spaceship, with a gun and
@@ -202,7 +203,7 @@ class Player(pygame.sprite.Sprite):
 
         max_percentage = 0.98
         min_percentage = 0.75
-        asteroid_max = 30
+        asteroid_max = 60
         asteroid_min = 1
         
         def normalize(x, x_min, x_max):
@@ -537,10 +538,11 @@ class Asteroid(pygame.sprite.Sprite):
 
 class Title():
     def __init__(self, text, font_file, size, font_color, pos):
-        font = pygame.font.Font(font_file, size)        
+        font = pygame.ftfont.Font(font_file, size)        
         self.text = font.render(text, True, font_color)
         self.text_rect = self.text.get_rect()
         self.text_rect.center = pos
+        self.height = self.text_rect.height
     
     def update(self, *args):
         pass
@@ -568,7 +570,7 @@ class Scoreboard():
             level (int): starting level
             score (int): starting score
         """
-        self.font = pygame.font.Font(font_file, size)
+        self.font = pygame.ftfont.Font(font_file, size)
         self.font_color = font_color
         self.pos = pos
         self.level = level
@@ -600,7 +602,7 @@ class Scoreboard():
             self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
         if score != self.score:
             self.score = score
-            self.score_text = self.font.render(f'Score: {str(self.score)}',
+            self.score_text = self.font.render(f'Score: {str(thousands_separator(self.score))}',
                                            True, self.font_color)
             self.score_text_rect = self.score_text.get_rect(topleft=self.score_pos)
 
@@ -641,9 +643,104 @@ class Highscores():
     """A class to represent a list of highscores to be drawn to the screen 
     after the game is over. 
     """
-    def __init__(self):
-        pass
+    def __init__(self, new_score, font_file, font_size, font_color, 
+                 x_pos, y_pos, padding, highlight_color):
+        highscores = []
+        self.new_highscore_position = -1
+        try:
+            with open('highscores.txt') as f:
+                highscores_raw = f.readlines()
+                scores_pattern = re.compile(r'([0-9]\. )([0-9]*)')
+                for raw_score in highscores_raw:
+                    scores_match = scores_pattern.search(raw_score)
+                    if scores_match:
+                        highscores.append(int(scores_match.group(2)))
 
+            if len(highscores) >= 5:
+                for i, score in enumerate(sorted(highscores, reverse=True)):
+                    if new_score > 0 and new_score >= score:
+                        highscores.insert(i, new_score)
+                        self.new_highscore_position = i
+                        highscores.pop()
+                        new_highscore = True
+                        break
+                else:
+                    new_highscore = False
+            else:
+                highscores.append(new_score)
+                highscores.sort(reverse=True)
+                new_highscore = True
+        except FileNotFoundError:
+            with open('highscores.txt', 'x') as f:
+                highscores.append(new_score)
+                new_highscore = True
+            
+        self.font = pygame.ftfont.Font(font_file, font_size)
+        self.font_color = font_color
+        self.x_pos = x_pos
+        self.y_pos = y_pos
+        self.padding = padding
+        self.scores_list = []
+        
+        if new_highscore:
+            new_highscore_parts = {}
+            new_highscore_text = self.font.render('NEW HIGHSCORE', 
+                                                  True, self.font_color)
+            new_highscore_text_rect = new_highscore_text.get_rect()
+            self.text_height = new_highscore_text_rect.height
+            new_highscore_parts['text'] = new_highscore_text
+            new_highscore_parts['text_rect'] = new_highscore_text_rect
+            self.scores_list.append(new_highscore_parts)
+        
+        for i, score in enumerate(highscores):
+            score_parts = {}
+            score_string = f'{str(i + 1)}. {str(thousands_separator(score))}'
+            if i == self.new_highscore_position:
+                score_text = self.font.render(score_string, True,
+                                              self.font_color,
+                                              highlight_color)
+                score_text.convert_alpha()
+            else:
+                score_text = self.font.render(score_string, True, 
+                                              self.font_color)
+            score_text_rect = score_text.get_rect()
+            self.text_height = score_text_rect.height
+            score_parts['text'] = score_text
+            score_parts['text_rect'] = score_text_rect
+            self.scores_list.append(score_parts)
+            
+        # position rects
+        for i in range(len(self.scores_list)):
+            text_position = (self.x_pos,
+                             self.y_pos +
+                             (self.text_height * i) + 
+                             (self.padding * i))
+            self.scores_list[i]['text_rect'].midtop = text_position
+        
+        self.height = (self.scores_list[-1]['text_rect'].bottom - 
+                       self.scores_list[0]['text_rect'].top)
+                       
+        with open('highscores.txt', 'w') as f:
+            for i, score in enumerate(highscores):
+                f.write(f'{str(i + 1)}. {str(score)}\n')
+                    
+    def update(self, *args):
+        pass
+    
+    def clear(self, screen, background):
+        rects = []
+        for score_text in self.scores_list:
+            rects.append(screen.blit(background, 
+                                     score_text['text_rect'], 
+                                     score_text['text_rect']))
+        return rects
+    
+    def draw(self, screen):
+        rects = []
+        for score_text in self.scores_list:
+            rects.append(screen.blit(score_text['text'], 
+                                     score_text['text_rect']))
+        return rects
 
 class Buttons():
     """A class to represent a panel of buttons for a menu. Dynamically
@@ -663,7 +760,7 @@ class Buttons():
             padding (int): padding between buttons and between button
             edge and text
         """
-        self.font = pygame.font.Font(font_file, size)
+        self.font = pygame.ftfont.Font(font_file, size)
         self.font_color = font_color
         self.button_color = button_color
         self.x_pos = x_pos
@@ -700,7 +797,12 @@ class Buttons():
             button_group['button'] = button
             button_group['button_rect'] = button_rect
         
-        # position buttons and text
+        self.reposition()
+            
+        self.height = (self.buttons[-1]['button_rect'].bottom -
+                       self.buttons[0]['button_rect'].top)
+    
+    def reposition(self):
         for i in range(len(self.buttons)):
             button_position = (self.x_pos, 
                                self.y_pos + 

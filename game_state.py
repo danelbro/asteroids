@@ -6,8 +6,9 @@ from onscreen_classes import (Player,
                               Asteroid, 
                               Scoreboard, 
                               Buttons, 
-                              Title)
-from resource_functions import draw_all
+                              Title,
+                              Highscores)
+from resource_functions import draw_all, thousands_separator
 
 class GameState():
     """A class to control the game state, containing functions for 
@@ -67,12 +68,21 @@ class GameState():
             str: a new game state
             None: the player quit the game
         """
+        title_y_pos = self.screen.get_rect().centery
+        padding = 5
+        
         title = Title('Asteroids', self.font_file, 52, self.font_color,
-                      (self.screen.get_rect().centerx, 200))
+                      (self.screen.get_rect().centerx, title_y_pos))
 
         buttons_panel = Buttons(self.font_file, 28, self.font_color, 
-                                self.button_color, self.screen.get_width() / 2, 
-                                400, 5, 'New Game', 'Options', 'Quit')
+                                self.button_color, 
+                                self.screen.get_rect().centerx, 0, 
+                                padding, 'New Game', 'Options', 'Quit')
+        buttons_y_pos = (self.screen.get_height() - 
+                         (padding * 4) - 
+                         buttons_panel.height)
+        buttons_panel.y_pos = buttons_y_pos
+        buttons_panel.reposition()
         
         self.allsprites.extend([title, buttons_panel])
         self.background.fill(self.bg_color)
@@ -251,6 +261,7 @@ class GameState():
                     return None
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
+                        self.allsprites.clear()
                         return 'intro'
                     if event.key == pygame.K_LSHIFT:
                         player.hyperspace(len(asteroids))
@@ -287,18 +298,37 @@ class GameState():
             str: a new game state
             None: the player quit the game.
         """
+        text_pos = 50
+        padding = 5
+        
+        heading_y_pos = text_pos
         heading = Title('Game Over', self.font_file, 42, 
                         self.font_color, 
-                        (self.screen.get_rect().centerx, 200))
+                        (self.screen.get_rect().centerx, heading_y_pos))
 
-        score_heading = Title('Score: ' + str(self.score), self.font_file, 52,
-                              self.font_color, 
-                              (self.screen.get_rect().centerx, 300))
+        score_heading_y_pos = heading_y_pos + heading.height + padding
+        score_heading = Title('Score: ' + str(thousands_separator(self.score)), 
+                              self.font_file, 36, self.font_color, 
+                              (self.screen.get_rect().centerx,
+                               score_heading_y_pos))
+        
+        highscores_y_pos = (score_heading_y_pos + 
+                            score_heading.height + 
+                            (padding * 4))
+        highscores = Highscores(self.score, self.font_file, 36, 
+                                self.font_color,
+                                self.screen.get_rect().centerx, 
+                                highscores_y_pos, padding, self.button_color)
 
         buttons_panel = Buttons(self.font_file, 28, self.font_color, 
                                 self.button_color, 
-                                self.screen.get_rect().centerx, 400, 
-                                5, 'New Game', 'Main Menu', 'Quit')
+                                self.screen.get_rect().centerx, 0,
+                                padding, 'New Game', 'Main Menu', 'Quit')
+        buttons_y_pos = (self.screen.get_height() - 
+                         (padding * 4) - 
+                         buttons_panel.height)
+        buttons_panel.y_pos = buttons_y_pos
+        buttons_panel.reposition()
         
         time_to_start = 1000
         menu_showing = False
@@ -309,19 +339,25 @@ class GameState():
             current_time = pygame.time.get_ticks()
             delta_time = self.clock.get_time() / 1000
             
+            dirty_rects = draw_all(self.allsprites, self.screen,
+                                   self.background, delta_time, 
+                                   self.level, self.score)
+            
             if (not menu_showing and
                 current_time - start_time >= time_to_start):
                     menu_showing = True
                     scoreboard = self.allsprites.pop()
-                    scoreboard.clear(self.screen, self.background)
+                    dirty_rects.extend(scoreboard.clear(self.screen, 
+                                                        self.background))
                     self.allsprites.extend([heading, score_heading, 
-                                            buttons_panel])
+                                            highscores, buttons_panel])
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return None
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
+                        self.allsprites.clear()
                         return None
                     if event.key == pygame.K_RETURN:
                         self.allsprites.clear()
@@ -340,9 +376,5 @@ class GameState():
                         elif button['label'] == 'Quit':
                             if button['button_rect'].collidepoint(mouse_pos):
                                 return None
-
-            dirty_rects = draw_all(self.allsprites, self.screen,
-                                   self.background, delta_time, 
-                                   self.level, self.score)
 
             pygame.display.update(dirty_rects)
