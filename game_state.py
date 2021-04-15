@@ -136,10 +136,10 @@ class GameState():
         player_turn_speed = 500
         player_fire_rate = 10
         player_shot_power = 800
-        player_animation_speed = 0.4
+        player_animation_speed = 0.5
         player_folder_name = 'player'
         dead_player_folder_name = 'dead_player'
-        dead_player_animation_speed = 0.12
+        dead_player_animation_speed = 0.4
         player_remains_alive = True
         level_friction = 0.1
         level = 1
