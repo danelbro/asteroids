@@ -1,6 +1,13 @@
 import pygame
 import sys
-from onscreen_classes import Player, DeadPlayer, Shot, Asteroid, Scoreboard, Buttons
+from onscreen_classes import (Player, 
+                              DeadPlayer, 
+                              Shot, 
+                              Asteroid, 
+                              Scoreboard, 
+                              Buttons, 
+                              Title)
+from resource_functions import draw_all
 
 class GameState():
     """A class to control the game state, containing functions for 
@@ -58,21 +65,19 @@ class GameState():
             str: a new game state
             None: the player quit the game
         """
-        title_font = pygame.font.Font(self.font_file, 52)        
-        title_text = title_font.render('Asteroids', True, self.font_color)
-        title_rect = title_text.get_rect()
-        title_rect.center = (self.screen.get_rect().centerx, 200)
+        title = Title('Asteroids', self.font_file, 52, self.font_color,
+                      (self.screen.get_rect().centerx, 200))
 
         buttons_panel = Buttons(self.font_file, 28, self.font_color, 
                                 self.button_color, self.screen.get_width() / 2, 
                                 400, 5, 'New Game', 'Options', 'Quit')
+        
+        sprites = [title, buttons_panel]
+        self.background.fill(self.bg_color)
+        self.screen.blit(self.background, self.screen.get_rect().topleft)
 
         while True:
             self.clock.tick(self.fps)
-            self.background.fill(self.bg_color)
-            self.screen.blit(self.background, (0,0))
-            self.screen.blit(title_text, title_rect)
-            buttons_panel.blit(self.screen)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -95,7 +100,8 @@ class GameState():
                             if button['button_rect'].collidepoint(mouse_pos):
                                 return None
 
-            pygame.display.update()
+            dirty_rects = draw_all(sprites, self.screen, self.background)
+            pygame.display.update(dirty_rects)
 
     def options(self):
         """An options menu. Presents the user with a number of game options 
@@ -142,23 +148,23 @@ class GameState():
         dead_player_animation_speed = 0.4
         player_remains_alive = True
         level_friction = 0.1
-        level = 1
+        self.level = 1
         level_asteroids_offset = 3
         min_asteroid_speed = 100
         max_asteroid_speed = 150
         min_asteroid_direction_angle = 0.3
-        min_asteroid_spawn_dist_to_player = 75
+        min_asteroid_spawn_dist_to_player = 100
         breakaway_asteroid_velocity_scale = 1.2
         bullet_lifespan = 1.0
                     
         # initialise scoreboard, sprite groups, player and asteroids
         scoreboard = Scoreboard(self.font_file, 24, self.font_color, 
-                                scoreboard_pos, level, self.score)
+                                scoreboard_pos, self.level, self.score)
 
         players = pygame.sprite.RenderUpdates()
         asteroids = pygame.sprite.RenderUpdates()
         shots = pygame.sprite.RenderUpdates()
-        allsprites = [players, asteroids, shots]
+        allsprites = [players, asteroids, shots, scoreboard]
 
         player = Player(player_pos, player_dir, player_thrust, player_mass,
                         player_turn_speed, level_friction, player_fire_rate,
@@ -181,7 +187,7 @@ class GameState():
             
             if (not asteroids_spawned and 
                 current_time - start_time >= time_to_start):
-                asteroids.add(Asteroid.spawn_asteroids(level + level_asteroids_offset,
+                asteroids.add(Asteroid.spawn_asteroids(self.level + level_asteroids_offset,
                                                        min_asteroid_speed,
                                                        max_asteroid_speed,
                                                        min_asteroid_direction_angle,
@@ -205,8 +211,10 @@ class GameState():
                                          level_friction,
                                          player.mass,
                                          self.screen)
-                self.end_screen_sprites = pygame.sprite.Group()
-                self.end_screen_sprites.add(dead_player, asteroids, shots)
+                # self.final_board = scoreboard
+                players.remove(player)
+                players.add(dead_player)
+                self.end_screen_sprites = [players, asteroids, shots, scoreboard]
                 return 'end'
 
             # check if any asteroids got hit
@@ -220,10 +228,10 @@ class GameState():
                     asteroids.add(new_asteroids)
 
             if len(asteroids) == 0 and asteroids_spawned:
-                level += 1
+                self.level += 1
                 shots.clear(self.screen, self.background)
                 shots.empty()
-                asteroids.add(Asteroid.spawn_asteroids(level + level_asteroids_offset, 
+                asteroids.add(Asteroid.spawn_asteroids(self.level + level_asteroids_offset,
                                                        min_asteroid_speed,
                                                        max_asteroid_speed,
                                                        min_asteroid_direction_angle,
@@ -257,21 +265,9 @@ class GameState():
                 player.turn(1)
             if keys[pygame.K_RIGHT]:
                 player.turn(-1)
-                
-            # erase and update
-            scoreboard_clear_rects = [dirty_rect for dirty_rect in scoreboard.clear(self.screen, self.background)]
-            scoreboard.update(level, self.score)
-
-            for sprite_group in allsprites:
-                sprite_group.clear(self.screen, self.background)
-                sprite_group.update(delta_time)
-
-            # draw to screen
-            scoreboard_blit_rects = [dirty_rect for dirty_rect in scoreboard.blit(self.screen)]
-            sprite_blit_rects = [dirty_rect for sprite_group in allsprites 
-                                            for dirty_rect in sprite_group.draw(self.screen)]
             
-            dirty_rects = scoreboard_clear_rects + scoreboard_blit_rects + sprite_blit_rects
+            dirty_rects = draw_all(allsprites, self.screen, self.background,
+                                   delta_time, self.level, self.score)
 
             pygame.display.update(dirty_rects)
 
@@ -286,20 +282,18 @@ class GameState():
             str: a new game state
             None: the player quit the game.
         """
-        heading_font = pygame.font.Font(self.font_file, 42)        
-        heading_text = heading_font.render('Game Over', True, self.font_color)
-        heading_text_rect = heading_text.get_rect()
-        heading_text_rect.center = (self.screen.get_width() / 2, 200)
+        heading = Title('Game Over', self.font_file, 42, 
+                        self.font_color, 
+                        (self.screen.get_rect().centerx, 200))
 
-        score_font = pygame.font.Font(self.font_file, 52)
-        score_text = score_font.render('Score: ' + str(int(self.score)), 
-                                       True, self.font_color)
-        score_text_rect = score_text.get_rect()
-        score_text_rect.center = (self.screen.get_width() / 2, 300)
+        score_heading = Title('Score: ' + str(self.score), self.font_file, 52,
+                              self.font_color, 
+                              (self.screen.get_rect().centerx, 300))
 
         buttons_panel = Buttons(self.font_file, 28, self.font_color, 
-                                self.button_color, self.screen.get_width() / 2,
-                                400, 5, 'New Game', 'Main Menu', 'Quit')
+                                self.button_color, 
+                                self.screen.get_rect().centerx, 400, 
+                                5, 'New Game', 'Main Menu', 'Quit')
         
         time_to_start = 1000
         menu_showing = False
@@ -309,38 +303,38 @@ class GameState():
             self.clock.tick(self.fps)
             current_time = pygame.time.get_ticks()
             delta_time = self.clock.get_time() / 1000
-            self.screen.blit(self.background, (0,0))
-            self.end_screen_sprites.update(delta_time)
-            self.end_screen_sprites.draw(self.screen)
             
             if (not menu_showing and
                 current_time - start_time >= time_to_start):
-                menu_showing = True
-                
-            if menu_showing:
-                self.screen.blit(heading_text, heading_text_rect)
-                self.screen.blit(score_text, score_text_rect)
-                buttons_panel.blit(self.screen)
-
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        return None
-                    elif event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_ESCAPE:
-                            return None
-                        if event.key == pygame.K_RETURN:
-                            return 'main'
-                    elif event.type == pygame.MOUSEBUTTONDOWN:
-                        mouse_pos = pygame.mouse.get_pos()
-                        for button in buttons_panel.buttons:
-                            if button['label'] == 'New Game':
-                                if button['button_rect'].collidepoint(mouse_pos):
-                                    return 'main'
-                            elif button['label'] == 'Main Menu':
-                                if button['button_rect'].collidepoint(mouse_pos):
-                                    return 'intro'
-                            elif button['label'] == 'Quit':
-                                if button['button_rect'].collidepoint(mouse_pos):
-                                    return None
+                    menu_showing = True
+                    scoreboard = self.end_screen_sprites.pop()
+                    scoreboard.clear(self.screen, self.background)
+                    self.end_screen_sprites.extend([heading, score_heading,
+                                                    buttons_panel])
             
-            pygame.display.update()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return None
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        return None
+                    if event.key == pygame.K_RETURN:
+                        return 'main'
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    mouse_pos = pygame.mouse.get_pos()
+                    for button in buttons_panel.buttons:
+                        if button['label'] == 'New Game':
+                            if button['button_rect'].collidepoint(mouse_pos):
+                                return 'main'
+                        elif button['label'] == 'Main Menu':
+                            if button['button_rect'].collidepoint(mouse_pos):
+                                return 'intro'
+                        elif button['label'] == 'Quit':
+                            if button['button_rect'].collidepoint(mouse_pos):
+                                return None
+
+            dirty_rects = draw_all(self.end_screen_sprites, self.screen,
+                                   self.background, delta_time, 
+                                   self.level, self.score)
+
+            pygame.display.update(dirty_rects)

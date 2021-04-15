@@ -66,7 +66,7 @@ class Player(pygame.sprite.Sprite):
         self.velocity_direction = pygame.math.Vector2(0, 0)
 
     # movement functions
-    def update(self, delta_time):
+    def update(self, delta_time, *args):
         """Called every frame to move the player.
 
         Args:
@@ -246,7 +246,7 @@ class DeadPlayer(pygame.sprite.Sprite):
         self.mass = mass
         self.area = screen.get_rect()
         
-    def update(self, delta_time):
+    def update(self, delta_time, *args):
         self.image_counter += self.animation_speed
         if self.image_counter >= self.number_of_images:
             self.kill()
@@ -329,7 +329,7 @@ class Shot(pygame.sprite.Sprite):
         self.lifetime = 0.0
         self.lifespan = lifespan
 
-    def update(self, delta_time):
+    def update(self, delta_time, *args):
         """Called every frame to move the shot
 
         Args:
@@ -398,7 +398,7 @@ class Asteroid(pygame.sprite.Sprite):
         self.direction = direction.normalize()
         self.rect.center = pos
 
-    def update(self, delta_time):
+    def update(self, delta_time, *args):
         """Called every frame to move the asteroid.
 
         Args:
@@ -535,6 +535,23 @@ class Asteroid(pygame.sprite.Sprite):
         return asteroid_list
 
 
+class Title():
+    def __init__(self, text, font_file, size, font_color, pos):
+        font = pygame.font.Font(font_file, size)        
+        self.text = font.render(text, True, font_color)
+        self.text_rect = self.text.get_rect()
+        self.text_rect.center = pos
+    
+    def update(self, *args):
+        pass
+    
+    def clear(self, screen, background):
+        return [screen.blit(background, self.text_rect, self.text_rect)]
+    
+    def draw(self, screen):
+        return [screen.blit(self.text, self.text_rect)]
+    
+
 class Scoreboard():
     """Class that represents a scoreboard to be drawn. Shows level, score
     and remaining lives.
@@ -568,7 +585,7 @@ class Scoreboard():
         self.score_text_rect = self.score_text.get_rect(topleft=self.score_pos)
                             
 
-    def update(self, level, score):
+    def update(self, delta_time, level, score):
         """Called every frame. Updates level or score if they are different
         to those stored in the scoreboard.
 
@@ -605,7 +622,7 @@ class Scoreboard():
                                  self.score_text_rect, self.score_text_rect))
         return rects
 
-    def blit(self, screen):
+    def draw(self, screen):
         """Called every frame. Draws the scoreboard to the screen
 
         Args:
@@ -632,7 +649,6 @@ class Buttons():
     """A class to represent a panel of buttons for a menu. Dynamically
     positions buttons based on number of labels requested.
     """
-    font: pygame.font.Font
     def __init__(self, font_file, size, font_color, button_color, 
                  x_pos, y_pos, padding, *labels):
         """Constructs a Buttons object.
@@ -698,13 +714,30 @@ class Buttons():
                 
             self.buttons[i]['button_rect'].midtop = button_position
             self.buttons[i]['button_text_rect'].midtop = text_position
+    
+    def clear(self, screen, background):
+        rects = []
+        for button_group in self.buttons:
+            rects.append(screen.blit(background, button_group['button_rect'],
+                        button_group['button_rect']))
+            rects.append(screen.blit(background, 
+                                     button_group['button_text_rect'],
+                                     button_group['button_text_rect']))
+        return rects
+    
+    def update(self, *args):
+        pass
 
-    def blit(self, screen):
+    def draw(self, screen):
         """Called every frame. Draws Buttons to screen.
 
         Args:
             screen (pygame.Surface): screen to draw buttons onto.
         """
+        rects = []
         for button_group in self.buttons:
-            screen.blit(button_group['button'], button_group['button_rect'])
-            screen.blit(button_group['button_text'], button_group['button_text_rect'])
+            rects.append(screen.blit(button_group['button'], 
+                                     button_group['button_rect']))
+            rects.append(screen.blit(button_group['button_text'], 
+                                     button_group['button_text_rect']))
+        return rects

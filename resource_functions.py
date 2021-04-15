@@ -53,3 +53,11 @@ def load_sound(name):
         print('Cannot load sound:', fullname)
         raise SystemExit(message)
     return sound
+
+
+def draw_all(sprites, screen, background, *args):
+    for sprite_group in sprites:
+            sprite_group.clear(screen, background)
+            sprite_group.update(*args)
+    return [dirty_rect for sprite_group in sprites
+                       for dirty_rect in sprite_group.draw(screen)]
