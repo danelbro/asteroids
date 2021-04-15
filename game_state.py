@@ -35,6 +35,7 @@ class GameState():
                            'end': self.end}
         self.state = 'intro'
         self.score = 0
+        self.level = 1
         self.screen = screen
         self.background = background
         self.bg_color = bg_color
@@ -43,6 +44,7 @@ class GameState():
         self.font_color = font_color
         self.font_file = font_file
         self.button_color = button_color
+        self.allsprites = []
 
     def state_controller(self):
         """Runs the appropriate function based on the current game state
@@ -72,9 +74,10 @@ class GameState():
                                 self.button_color, self.screen.get_width() / 2, 
                                 400, 5, 'New Game', 'Options', 'Quit')
         
-        sprites = [title, buttons_panel]
+        self.allsprites.extend([title, buttons_panel])
         self.background.fill(self.bg_color)
-        self.screen.blit(self.background, self.screen.get_rect().topleft)
+        self.screen.blit(self.background, (0,0))
+        pygame.display.update()
 
         while True:
             self.clock.tick(self.fps)
@@ -86,21 +89,24 @@ class GameState():
                     if event.key == pygame.K_ESCAPE:
                         return None
                     if event.key == pygame.K_RETURN:
+                        self.allsprites.clear()
                         return 'main'
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
                     for button in buttons_panel.buttons:
                         if button['label'] == 'New Game':
                             if button['button_rect'].collidepoint(mouse_pos):
+                                self.allsprites.clear()
                                 return 'main'
                         elif button['label'] == 'Options':
                             if button['button_rect'].collidepoint(mouse_pos):
+                                self.allsprites.clear()
                                 return 'options'
                         elif button['label'] == 'Quit':
                             if button['button_rect'].collidepoint(mouse_pos):
                                 return None
 
-            dirty_rects = draw_all(sprites, self.screen, self.background)
+            dirty_rects = draw_all(self.allsprites, self.screen, self.background)
             pygame.display.update(dirty_rects)
 
     def options(self):
@@ -164,7 +170,7 @@ class GameState():
         players = pygame.sprite.RenderUpdates()
         asteroids = pygame.sprite.RenderUpdates()
         shots = pygame.sprite.RenderUpdates()
-        allsprites = [players, asteroids, shots, scoreboard]
+        self.allsprites.extend([players, asteroids, shots, scoreboard])
 
         player = Player(player_pos, player_dir, player_thrust, player_mass,
                         player_turn_speed, level_friction, player_fire_rate,
@@ -214,7 +220,6 @@ class GameState():
                 # self.final_board = scoreboard
                 players.remove(player)
                 players.add(dead_player)
-                self.end_screen_sprites = [players, asteroids, shots, scoreboard]
                 return 'end'
 
             # check if any asteroids got hit
@@ -266,7 +271,7 @@ class GameState():
             if keys[pygame.K_RIGHT]:
                 player.turn(-1)
             
-            dirty_rects = draw_all(allsprites, self.screen, self.background,
+            dirty_rects = draw_all(self.allsprites, self.screen, self.background,
                                    delta_time, self.level, self.score)
 
             pygame.display.update(dirty_rects)
@@ -307,10 +312,10 @@ class GameState():
             if (not menu_showing and
                 current_time - start_time >= time_to_start):
                     menu_showing = True
-                    scoreboard = self.end_screen_sprites.pop()
+                    scoreboard = self.allsprites.pop()
                     scoreboard.clear(self.screen, self.background)
-                    self.end_screen_sprites.extend([heading, score_heading,
-                                                    buttons_panel])
+                    self.allsprites.extend([heading, score_heading, 
+                                            buttons_panel])
             
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -319,21 +324,24 @@ class GameState():
                     if event.key == pygame.K_ESCAPE:
                         return None
                     if event.key == pygame.K_RETURN:
+                        self.allsprites.clear()
                         return 'main'
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
                     for button in buttons_panel.buttons:
                         if button['label'] == 'New Game':
                             if button['button_rect'].collidepoint(mouse_pos):
+                                self.allsprites.clear()
                                 return 'main'
                         elif button['label'] == 'Main Menu':
                             if button['button_rect'].collidepoint(mouse_pos):
+                                self.allsprites.clear()
                                 return 'intro'
                         elif button['label'] == 'Quit':
                             if button['button_rect'].collidepoint(mouse_pos):
                                 return None
 
-            dirty_rects = draw_all(self.end_screen_sprites, self.screen,
+            dirty_rects = draw_all(self.allsprites, self.screen,
                                    self.background, delta_time, 
                                    self.level, self.score)
 
