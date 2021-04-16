@@ -658,40 +658,66 @@ class Highscores():
                         highscores.append(int(scores_match.group(2)))
 
             if len(highscores) >= 5:
+                # highscore list is already at max length. we need to check
+                # whether the new_score is higher than any already in the list
+                # and remove the lowest
                 for i, score in enumerate(sorted(highscores, reverse=True)):
-                    if new_score > 0 and new_score >= score:
+                    if new_score > 0 and new_score > score:
                         highscores.insert(i, new_score)
                         self.new_highscore_position = i
                         highscores.pop()
                         new_highscore = True
                         break
                 else:
+                    # the new_score isn't higher than any already in the list
                     new_highscore = False
-            else:
-                highscores.append(new_score)
-                highscores.sort(reverse=True)
+
+            elif new_score > 0:
+                # the higscores list is able to accept a new score, but we
+                # don't want scores of 0 to appear. First check whether the
+                # new_score is higher than any currently in the list
                 new_highscore = True
+                for i, score in enumerate(sorted(highscores, reverse=True)):
+                    if new_score > 0 and new_score >= score:
+                        highscores.insert(i, new_score)
+                        self.new_highscore_position = i
+                        break
+                else:
+                    # the new_score isn't higher than any current scores, but
+                    # since there's space in the list we add it
+                    highscores.append(new_score)
+                    self.new_highscore_position = len(highscores) - 1
+            else:
+                # the new_score is 0
+                new_highscore = False
+                        
         except FileNotFoundError:
             with open('highscores.txt', 'x') as f:
+                self.new_highscore_position = 0
                 highscores.append(new_score)
                 new_highscore = True
-            
+
+        highscores.sort(reverse=True)
         self.font = pygame.ftfont.Font(font_file, font_size)
         self.font_color = font_color
         self.x_pos = x_pos
         self.y_pos = y_pos
         self.padding = padding
         self.scores_list = []
-        
+
         if new_highscore:
-            new_highscore_parts = {}
-            new_highscore_text = self.font.render('NEW HIGHSCORE', 
-                                                  True, self.font_color)
-            new_highscore_text_rect = new_highscore_text.get_rect()
-            self.text_height = new_highscore_text_rect.height
-            new_highscore_parts['text'] = new_highscore_text
-            new_highscore_parts['text_rect'] = new_highscore_text_rect
-            self.scores_list.append(new_highscore_parts)
+            title_text = 'NEW HIGHSCORE'
+        else:
+            title_text = 'HIGHSCORES'
+            
+        new_highscore_parts = {}
+        new_highscore_text = self.font.render(title_text, 
+                                              True, self.font_color)
+        new_highscore_text_rect = new_highscore_text.get_rect()
+        self.text_height = new_highscore_text_rect.height
+        new_highscore_parts['text'] = new_highscore_text
+        new_highscore_parts['text_rect'] = new_highscore_text_rect
+        self.scores_list.append(new_highscore_parts)
         
         for i, score in enumerate(highscores):
             score_parts = {}
