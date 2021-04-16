@@ -156,8 +156,8 @@ class GameState():
         player_thrust = 16000
         player_mass = 32
         player_turn_speed = 500
-        player_fire_rate = 10
-        player_shot_power = 800
+        player_fire_rate = 500 # higher numbers mean slower rate
+        player_shot_power = 700
         player_animation_speed = 0.5
         player_folder_name = 'player'
         dead_player_folder_name = 'dead_player'
@@ -234,7 +234,7 @@ class GameState():
 
             # check if any asteroids got hit
             shot_asteroids = pygame.sprite.groupcollide(asteroids, shots, True, True,
-                                                        collided=pygame.sprite.collide_rect_ratio(0.75))
+                                                        collided=pygame.sprite.collide_mask)
             
             for asteroid, shot_list in shot_asteroids.items():
                 self.score += int(base_score / asteroid.state)

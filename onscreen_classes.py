@@ -322,6 +322,7 @@ class Shot(pygame.sprite.Sprite):
         self.rect.center = initial_position
         screen = pygame.display.get_surface()
         self.area = screen.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
         
         self.direction = direction
         self.velocity = power * self.direction
