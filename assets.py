@@ -94,35 +94,13 @@ class Player(pygame.sprite.Sprite):
         self.apply_turn(delta_time)
         self.calc_velocity(delta_time)
         change_position = self.velocity * delta_time
-        self.rect = self.check_collide(self.rect.move(change_position.x, 
-                                                      change_position.y))
+        self.rect = check_collide(
+            self.rect.move(change_position.x, change_position.y), self.area
+        )
 
         # reset
         self.acceleration_magnitude = 0
         self.turn_amount = 0
-    
-    def check_collide(self, newpos):
-        """Implements wraparound behaviour.
-
-        Args:
-            newpos (pygame.Rect): the rect of a player to be checked
-
-        Returns:
-            pygame.Rect: the rect after it's been checked
-        """
-        if newpos.bottom < 0:
-            newpos.top = self.area.height
-                                
-        elif newpos.top > self.area.height:
-            newpos.bottom = 0
-                
-        elif newpos.right < 0:
-            newpos.left = self.area.width
-                
-        elif newpos.left > self.area.width:
-            newpos.right = 0
-        
-        return newpos
 
     def calc_velocity(self, delta_time):
         """Calculate velocity based on thrust and drag
@@ -273,8 +251,9 @@ class DeadPlayer(pygame.sprite.Sprite):
             self.rotate_image()
             self.calc_velocity(delta_time)
             change_position = self.velocity * delta_time
-            self.rect = self.check_collide(self.rect.move(change_position.x,
-                                                          change_position.y))
+            self.rect = check_collide(self.rect.move(change_position.x, 
+                                                     change_position.y),
+                                      self.area)
             
     def rotate_image(self):
         direction_angle = -math.degrees(math.atan2(self.direction.y, 
@@ -293,29 +272,6 @@ class DeadPlayer(pygame.sprite.Sprite):
         self.acceleration = self.total_forces / self.mass
         
         self.velocity += self.acceleration * delta_time
-    
-    def check_collide(self, newpos):
-        """Implements wraparound behaviour.
-
-        Args:
-            newpos (pygame.Rect): the rect of a player to be checked
-
-        Returns:
-            pygame.Rect: the rect after it's been checked
-        """
-        if newpos.bottom < 0:
-            newpos.top = self.area.height
-                                
-        elif newpos.top > self.area.height:
-            newpos.bottom = 0
-                
-        elif newpos.right < 0:
-            newpos.left = self.area.width
-                
-        elif newpos.left > self.area.width:
-            newpos.right = 0
-        
-        return newpos
     
 
 class Shot(pygame.sprite.Sprite):
@@ -361,8 +317,9 @@ class Shot(pygame.sprite.Sprite):
         if self.lifetime >= self.lifespan:
             self.kill()
         change_position = self.velocity * delta_time
-        self.rect = self.check_collide(self.rect.move(change_position.x, 
-                                                      change_position.y))
+        self.rect = check_collide(self.rect.move(change_position.x, 
+                                                 change_position.y), 
+                                  self.area)
 
     def rotate_image(self):
         """Ensures the shot faces the direction it travels
@@ -372,29 +329,6 @@ class Shot(pygame.sprite.Sprite):
         self.image = pygame.transform.rotate(self.image, spin)
         self.rect = self.image.get_rect(center=self.rect.center)
         
-    def check_collide(self, newpos):
-        """Implement wraparound behaviour.
-
-        Args:
-            newpos (pygame.Rect): the rect of a shot to be checked
-
-        Returns:
-            pygame.Rect: the rect after it's been checked
-        """
-        if newpos.bottom < 0:
-            newpos.top = self.area.height
-                                
-        elif newpos.top > self.area.height:
-            newpos.bottom = 0
-                
-        elif newpos.right < 0:
-            newpos.left = self.area.width
-                
-        elif newpos.left > self.area.width:
-            newpos.right = 0
-        
-        return newpos
-
 
 class Asteroid(pygame.sprite.Sprite):
     """Class to represent an Asteroid. 
@@ -431,31 +365,8 @@ class Asteroid(pygame.sprite.Sprite):
             delta_time (float): time since the last frame
         """
         velocity_vector = self.velocity * self.direction * delta_time
-        self.rect = self.check_collide(self.rect.move(velocity_vector))
+        self.rect = check_collide(self.rect.move(velocity_vector), self.area)
         self.rotate_image(delta_time)
-
-    def check_collide(self, newpos):
-        """Implement wraparound behaviour.
-
-        Args:
-            newpos (pygame.Rect): the rect of an asteroid to be checked
-
-        Returns:
-            pygame.Rect: the rect after it's been checked
-        """
-        if newpos.bottom < 0:
-            newpos.top = self.area.height
-                                
-        elif newpos.top > self.area.height:
-            newpos.bottom = 0
-                
-        elif newpos.right < 0:
-            newpos.left = self.area.width
-                
-        elif newpos.left > self.area.width:
-            newpos.right = 0
-        
-        return newpos
         
     def rotate_image(self, delta_time):
         """Rotates the image by a set amount every frame.
@@ -914,3 +825,26 @@ class Buttons():
             rects.append(screen.blit(button_group['button_text'], 
                                      button_group['button_text_rect']))
         return rects
+
+def check_collide(newpos, area):
+    """Implements wraparound behaviour.
+
+    Args:
+        newpos (pygame.Rect): the rect of a player to be checked
+
+    Returns:
+        pygame.Rect: the rect after it's been checked
+    """
+    if newpos.bottom < 0:
+        newpos.top = area.height
+                            
+    elif newpos.top > area.height:
+        newpos.bottom = 0
+            
+    elif newpos.right < 0:
+        newpos.left = area.width
+            
+    elif newpos.left > area.width:
+        newpos.right = 0
+    
+    return newpos
