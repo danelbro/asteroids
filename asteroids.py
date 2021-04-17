@@ -4,8 +4,7 @@ os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"
 import sys
 import random
 import pygame
-from game_state import GameState
-from resource_functions import load_image
+import game_state
 
 def main(): 
     # initialise pygame
@@ -26,15 +25,17 @@ def main():
     font_color = (20, 20, 20)
     fps = 60
 
-    game_state = GameState(screen, background, bg_color, clock,
-                           fps, font_color, font_file, button_color)
+    game_state_obj = game_state.GameState(screen, background,
+                                          bg_color, clock, fps, 
+                                          font_color, font_file, 
+                                          button_color)
 
     while not done:
-        done = game_state.state_controller()
+        done = game_state_obj.state_controller()
 
     pygame.quit()
     sys.exit()
-
+ 
 
 if __name__ == '__main__':
     main()

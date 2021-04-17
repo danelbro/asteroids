@@ -3,11 +3,13 @@ import random
 import os
 import re
 import math
-from resource_functions import load_image, load_sound, thousands_separator
+import utility
 
 class Player(pygame.sprite.Sprite):
-    """A class to represent a controllable spaceship, with a gun and
-    a hyperspace drive. Subclass of pygame.sprite.Sprite.
+    """A class to represent a controllable spaceship. 
+    
+    The player is a spaceship with a gun and a hyperspace drive. 
+    Subclass of pygame.sprite.Sprite.
     """
     def __init__(self, player_pos, player_dir, thrust_power, 
                  mass, turn_speed, fluid_density, fire_rate, 
@@ -16,16 +18,21 @@ class Player(pygame.sprite.Sprite):
 
         Args:
             player_pos (tuple): initial position for the player
-            player_dir (tuple): initial direction that the player is facing
+            player_dir (tuple): initial direction that the player is 
+            facing
             thrust_power (int): amount of force that thrusting adds
-            mass (int): mass of the spaceship, used for physics calculations
+            mass (int): mass of the spaceship, used for physics 
+            calculations
             turn_speed (int): degrees the spaceship turns by per frame
             fluid_density (float): used for calculating friction
             fire_rate (int): max amount of shots per second
             shot_power (int): speed of the bullets created by the gun
-            animation_speed (float): how fast the thrusting animation plays
-            folder_name (str): name of folder containing animation frames
-            remains_alive (bool): whether a hyperspace jumps killed the player
+            animation_speed (float): how fast the thrusting animation 
+            plays
+            folder_name (str): name of folder containing animation 
+            frames
+            remains_alive (bool): whether a hyperspace jumps killed 
+            the player
         """
         super().__init__()
         self.images = []
@@ -33,8 +40,9 @@ class Player(pygame.sprite.Sprite):
         self.number_of_images = len(os.listdir(self.folder_name))
         for i in range(self.number_of_images):
             image_name = folder_name + '-' + str(i) + '.png'
-            self.images.append(load_image(image_name, self.folder_name,
-                                          colorkey=(255,255,255)))
+            self.images.append(utility.load_image(image_name, 
+                                                  self.folder_name,
+                                                  colorkey=(255,255,255)))
         self.image = self.images[0]
         self.rect = self.image.get_rect()
         self.image_counter = 0
@@ -133,9 +141,9 @@ class Player(pygame.sprite.Sprite):
             self.velocity_direction = pygame.math.Vector2(0, 0)
 
         # calculate total forces and acceleration
-        self.total_forces = ((self.acceleration_magnitude * 
-                              self.facing_direction) + 
-                             (self.drag * -self.velocity_direction))
+        self.total_forces = ((self.acceleration_magnitude 
+                              * self.facing_direction) 
+                             + (self.drag * -self.velocity_direction))
         self.acceleration = self.total_forces / self.mass
 
         # apply acceleration to velocity
@@ -147,7 +155,9 @@ class Player(pygame.sprite.Sprite):
         Args:
             delta_time (float): time since the last frame
         """
-        self.facing_direction = self.facing_direction.rotate(-self.turn_amount * delta_time)
+        self.facing_direction = self.facing_direction.rotate(
+            -self.turn_amount * delta_time
+        )
 
         # rotate image
         direction_angle = -math.degrees(math.atan2(self.facing_direction.y, 
@@ -172,8 +182,10 @@ class Player(pygame.sprite.Sprite):
         self.turn_amount = self.turn_speed * turn_dir
 
     def fire(self, current_time, lifespan):
-        """Creates a Shot if allowed by the player's fire rate. The shot 
-        travels in the direction the player is currently facing.
+        """Creates a Shot if allowed by the player's fire rate. 
+        
+        The shot travels in the direction the player is currently 
+        facing.
 
         Args:
             current_time (int): 
@@ -187,16 +199,20 @@ class Player(pygame.sprite.Sprite):
             return
         elif current_time >= self.last_shot_time + self.fire_rate:
             self.last_shot_time = current_time
-            spawn_point = self.rect.center + (self.facing_direction * self.rect.height / 2 )
-            return Shot(self.facing_direction, spawn_point, self.shot_power, lifespan)
+            spawn_point = self.rect.center + (self.facing_direction 
+                                              * (self.rect.height / 2))
+            return Shot(self.facing_direction, spawn_point, 
+                        self.shot_power, lifespan)
 
     def hyperspace(self, number_of_asteroids):
-        """Moves the player to a random location. Sometimes kills the 
-        player; this is more likely if there are fewer asteroids on screen.
+        """Moves the player to a random location. 
+        
+        Sometimes kills the player; this is more likely if there are 
+        fewer asteroids on screen.
 
         Args:
-            number_of_asteroids (int): the amount of asteroids currently 
-            on screen
+            number_of_asteroids (int): the amount of asteroids 
+            currently on screen
         """
         self.rect.center = (random.randint(0, self.area.width),
                             random.randint(0, self.area.height))
@@ -209,7 +225,7 @@ class Player(pygame.sprite.Sprite):
         def normalize(x, x_min, x_max):
             return x - x_min / x_max - x_min
         
-        asteroids_normalized = normalize(number_of_asteroids, asteroid_min, 
+        asteroids_normalized = normalize(number_of_asteroids, asteroid_min,
                                          asteroid_max)
         
         def lerp(min, max, t):
@@ -232,8 +248,9 @@ class DeadPlayer(pygame.sprite.Sprite):
         self.number_of_images = len(os.listdir(self.folder_name))
         for i in range(self.number_of_images):
             image_name = folder_name + '-' + str(i) + '.png'
-            self.images.append(load_image(image_name, self.folder_name,
-                                          colorkey=(255,255,255)))
+            self.images.append(utility.load_image(image_name, 
+                                                  self.folder_name,
+                                                  colorkey=(255,255,255)))
         self.image = self.images[0]
         self.original = self.image
         self.direction = direction
@@ -302,21 +319,24 @@ class DeadPlayer(pygame.sprite.Sprite):
     
 
 class Shot(pygame.sprite.Sprite):
-    """Class to represent a shot fired by the Player. Subclass of 
-    pygame.sprite.Sprite.
+    """Class to represent a shot fired by the Player. 
+    
+    Subclass of pygame.sprite.Sprite.
     """
     def __init__(self, direction, initial_position, power, lifespan):
         """Constructs a Shot object.
 
         Args:
-            direction (pygame.math.Vector2): direction the shot will travel
-            initial_position (pygame.math.Vector2): where the shot starts
+            direction (pygame.math.Vector2): direction the shot will 
+            travel
+            initial_position (pygame.math.Vector2): where the shot 
+            starts
             power (int): the speed of the shot
             lifespan (float): how long in seconds the shot will last
         """
         super().__init__()
         self.folder_name = os.path.join('data', 'sprites', 'shot')
-        self.image = load_image('shot.png', self.folder_name, -1)
+        self.image = utility.load_image('shot.png', self.folder_name, -1)
         self.rect = self.image.get_rect()
         self.initial_position = pygame.math.Vector2(initial_position)
         self.rect.center = initial_position
@@ -377,14 +397,18 @@ class Shot(pygame.sprite.Sprite):
 
 
 class Asteroid(pygame.sprite.Sprite):
-    """Class to represent an Asteroid. Subclass of pygame.sprite.Sprite.
+    """Class to represent an Asteroid. 
+    
+    Subclass of pygame.sprite.Sprite.
     """
     def __init__(self, velocity, direction, image_number, pos=None, state=3):
         super().__init__()
         self.state = state
         self.folder_name = os.path.join('data', 'sprites', 'asteroid')
-        self.image = load_image(f'asteroid-{self.state}-{image_number}.png',
-                                self.folder_name, -1)
+        self.image = utility.load_image(
+            f'asteroid-{self.state}-{image_number}.png',
+            self.folder_name, -1
+        )
         self.rect = self.image.get_rect()
         self.original = self.image
         screen = pygame.display.get_surface()
@@ -449,18 +473,20 @@ class Asteroid(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
     def hit(self, velocity_scale):
-        """Returns two new asteroids if the asteroid that got hit is large
+        """Returns new asteroids if required. 
+        
+        Spawns two new asteroids if the asteroid that got hit is large
         enough. If not, returns None.
 
         Args:
-            velocity_scale (float): how much faster the new asteroids move
-            than the parent asteroid.
+            velocity_scale (float): how much faster the new asteroids 
+            move than the parent asteroid.
 
         Returns:
-            list[Asteroid]: the two new asteroids, if the parent is large 
-            enough
-            None: this is already the smallest asteroid size, so no child
-            asteroids are created.
+            list[Asteroid]: the two new asteroids, if the parent is 
+            large enough
+            None: this is already the smallest asteroid size, so no 
+            child asteroids are created.
         """
         if self.state > 1:
             new_asteroids_state = self.state - 1
@@ -484,9 +510,8 @@ class Asteroid(pygame.sprite.Sprite):
             return
 
     @staticmethod
-    def spawn_asteroids(number_of_asteroids, min_speed, 
-                        max_speed, min_angle, player_pos, 
-                        min_player_distance, width, height):
+    def spawn(number_of_asteroids, min_speed, max_speed, min_angle, 
+              player_pos, min_player_distance, width, height):
         """Randomly generates new asteroids.
 
         Args:
@@ -512,16 +537,20 @@ class Asteroid(pygame.sprite.Sprite):
 
             # get a random acceptable direction for this asteroid
             asteroid_direction = pygame.math.Vector2(0, 0)
-            while (math.fabs(asteroid_direction.x) < min_angle or
-                math.fabs(asteroid_direction.y) < min_angle):
+            while (math.fabs(asteroid_direction.x) 
+                   < min_angle or 
+                   math.fabs(asteroid_direction.y) 
+                   < min_angle):
                 asteroid_direction.x = random.uniform(-1.0, 1.0)
                 asteroid_direction.y = random.uniform(-1.0, 1.0)
 
             # get a random acceptable position for this asteroid
             position_x = player_pos.centerx
             position_y = player_pos.centery
-            while (math.fabs(position_x - player_pos.centerx) < min_player_distance or
-                math.fabs(position_y - player_pos.centery) < min_player_distance):
+            while (math.fabs(position_x - player_pos.centerx) 
+                   < min_player_distance or
+                   math.fabs(position_y - player_pos.centery) 
+                   < min_player_distance):
                 position_x = random.randint(0, width)
                 position_y = random.randint(0, height)
             position = pygame.math.Vector2(position_x, position_y)
@@ -556,8 +585,8 @@ class Title():
     
 
 class Scoreboard():
-    """Class that represents a scoreboard to be drawn. Shows level, score
-    and remaining lives.
+    """Class that represents a scoreboard to be drawn. Shows level, 
+    score and remaining lives.
     """
     def __init__(self, font_file, size, font_color,
                  pos, level, score):
@@ -583,14 +612,18 @@ class Scoreboard():
         self.score_text = self.font.render(f'Score: {str(self.score)}',
                                            True, self.font_color)
         self.score_pos = (self.pos[0], 
-                          self.pos[1] + 
-                          self.level_text_rect.height)
-        self.score_text_rect = self.score_text.get_rect(topleft=self.score_pos)
+                          (self.pos[1] 
+                           + self.level_text_rect.height))
+        self.score_text_rect = self.score_text.get_rect(
+            topleft=self.score_pos
+        )
                             
 
     def update(self, delta_time, level, score):
-        """Called every frame. Updates level or score if they are different
-        to those stored in the scoreboard.
+        """Updates level or score.
+        
+        Called every frame. Updates level or score if they are 
+        different to those stored in the scoreboard.
 
         Args:
             level (int): the new level to be checked
@@ -603,17 +636,23 @@ class Scoreboard():
             self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
         if score != self.score:
             self.score = score
-            self.score_text = self.font.render(f'Score: {str(thousands_separator(self.score))}',
-                                           True, self.font_color)
-            self.score_text_rect = self.score_text.get_rect(topleft=self.score_pos)
+            self.score_text = self.font.render(
+                f'Score: {str(utility.thousands(self.score))}', 
+                True, self.font_color
+            )
+            self.score_text_rect = self.score_text.get_rect(
+                topleft=self.score_pos
+            )
 
     def clear(self, screen, background):
-        """Called every frame. Erases the scoreboard so it can be redrawn.
+        """Erases the scoreboard so it can be redrawn.
+        
+        Called every frame.
 
         Args:
             screen (pygame.Surface): the screen the scoreboard is on
-            background (pygame.Surface): the background to draw over the 
-            scoreboard to erase it
+            background (pygame.Surface): the background to draw over 
+            the scoreboard to erase it
 
         Returns:
             list[pygame.Rect]: a list of 'dirty rects'
@@ -641,8 +680,9 @@ class Scoreboard():
 
 
 class Highscores():
-    """A class to represent a list of highscores to be drawn to the screen 
-    after the game is over. 
+    """A class to represent a list of highscores 
+    
+    Drawn to the screen after the game is over. 
     """
     def __init__(self, new_score, font_file, font_size, font_color, 
                  x_pos, y_pos, padding, highlight_color):
@@ -658,9 +698,9 @@ class Highscores():
                         highscores.append(int(scores_match.group(2)))
 
             if len(highscores) >= 5:
-                # highscore list is already at max length. we need to check
-                # whether the new_score is higher than any already in the list
-                # and remove the lowest
+                # highscore list is already at max length. we need to 
+                # check whether the new_score is higher than any 
+                # already in the list and remove the lowest
                 for i, score in enumerate(sorted(highscores, reverse=True)):
                     if new_score > 0 and new_score > score:
                         highscores.insert(i, new_score)
@@ -669,13 +709,15 @@ class Highscores():
                         new_highscore = True
                         break
                 else:
-                    # the new_score isn't higher than any already in the list
+                    # the new_score isn't higher than any already in 
+                    # the list
                     new_highscore = False
 
             elif new_score > 0:
-                # the higscores list is able to accept a new score, but we
-                # don't want scores of 0 to appear. First check whether the
-                # new_score is higher than any currently in the list
+                # the higscores list is able to accept a new score, 
+                # but we don't want scores of 0 to appear. First check 
+                # whether the new_score is higher than any currently 
+                # in the list
                 new_highscore = True
                 for i, score in enumerate(sorted(highscores, reverse=True)):
                     if new_score > 0 and new_score >= score:
@@ -683,8 +725,9 @@ class Highscores():
                         self.new_highscore_position = i
                         break
                 else:
-                    # the new_score isn't higher than any current scores, but
-                    # since there's space in the list we add it
+                    # the new_score isn't higher than any current 
+                    # scores, but since there's space in the list 
+                    # we add it
                     highscores.append(new_score)
                     self.new_highscore_position = len(highscores) - 1
             else:
@@ -721,7 +764,7 @@ class Highscores():
         
         for i, score in enumerate(highscores):
             score_parts = {}
-            score_string = f'{str(i + 1)}. {str(thousands_separator(score))}'
+            score_string = f'{str(i + 1)}. {str(utility.thousands(score))}'
             if i == self.new_highscore_position:
                 score_text = self.font.render(score_string, True,
                                               self.font_color,
@@ -739,13 +782,13 @@ class Highscores():
         # position rects
         for i in range(len(self.scores_list)):
             text_position = (self.x_pos,
-                             self.y_pos +
-                             (self.text_height * i) + 
-                             (self.padding * i))
+                             (self.y_pos 
+                              + (self.text_height * i) 
+                              + (self.padding * i)))
             self.scores_list[i]['text_rect'].midtop = text_position
         
-        self.height = (self.scores_list[-1]['text_rect'].bottom - 
-                       self.scores_list[0]['text_rect'].top)
+        self.height = (self.scores_list[-1]['text_rect'].bottom 
+                       - self.scores_list[0]['text_rect'].top)
                        
         with open('highscores.txt', 'w') as f:
             for i, score in enumerate(highscores):
@@ -770,8 +813,9 @@ class Highscores():
         return rects
 
 class Buttons():
-    """A class to represent a panel of buttons for a menu. Dynamically
-    positions buttons based on number of labels requested.
+    """A class to represent a panel of buttons for a menu. 
+    
+    Dynamically positions buttons based on number of labels requested.
     """
     def __init__(self, font_file, size, font_color, button_color, 
                  x_pos, y_pos, padding, *labels):
@@ -826,20 +870,20 @@ class Buttons():
         
         self.reposition()
             
-        self.height = (self.buttons[-1]['button_rect'].bottom -
-                       self.buttons[0]['button_rect'].top)
+        self.height = (self.buttons[-1]['button_rect'].bottom 
+                       - self.buttons[0]['button_rect'].top)
     
     def reposition(self):
         for i in range(len(self.buttons)):
             button_position = (self.x_pos, 
-                               self.y_pos + 
-                               (self.button_height * i) +
-                               (self.padding * i))
+                               self.y_pos 
+                               + (self.button_height * i) 
+                               + (self.padding * i))
             text_position = (self.x_pos, 
-                             self.y_pos + 
-                             (self.button_height * i) + 
-                             self.padding + 
-                             (self.padding * i))
+                             self.y_pos 
+                             + (self.button_height * i) 
+                             + self.padding 
+                             + (self.padding * i))
                 
             self.buttons[i]['button_rect'].midtop = button_position
             self.buttons[i]['button_text_rect'].midtop = text_position
