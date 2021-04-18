@@ -536,7 +536,7 @@ class Scoreboard():
     score and remaining lives.
     """
     def __init__(self, font_file, size, font_color,
-                 pos, level, score):
+                 bg_color, pos, level, score):
         """Constructs a Scoreboard object.
 
         Args:
@@ -549,21 +549,43 @@ class Scoreboard():
         """
         self._font = pygame.ftfont.Font(font_file, size)
         self._font_color = font_color
+        self._bg_color = bg_color
+        self._current_font_color = self._font_color
         self.pos = pos
         self.level = level
         self.score = score
 
+        if self.level == 0:
+            self.hide()
+        else:
+            self.show()
+    
         self.level_text = self._font.render(f'Level {self.level}',
-                                           True, self._font_color)
+                                           True, self._current_font_color)
         self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
+        
         self.score_text = self._font.render(f'Score: {str(self.score)}',
-                                           True, self._font_color)
+                                           True, self._current_font_color)
         self.score_pos = (self.pos[0], 
                           (self.pos[1] 
                            + self.level_text_rect.height))
         self.score_text_rect = self.score_text.get_rect(
             topleft=self.score_pos
         )
+        
+    def show(self):
+        self._current_font_color = self._font_color
+        self.level_text = self._font.render(
+                f'Level {self.level}',
+                True, self._current_font_color
+            )
+        self.score_text = self._font.render(
+                f'Score: {str(utility.thousands(self.score))}', 
+                True, self._current_font_color
+            )
+        
+    def hide(self):
+        self._current_font_color = self._bg_color
                             
     def update(self, delta_time, level, score):
         """Updates level or score.
@@ -579,7 +601,7 @@ class Scoreboard():
             self.level = level
             self.level_text = self._font.render(
                 f'Level {self.level}',
-                True, self._font_color
+                True, self._current_font_color
             )
             self.level_text_rect = self.level_text.get_rect(
                 topleft=self.pos
@@ -589,7 +611,7 @@ class Scoreboard():
             self.score = score
             self.score_text = self._font.render(
                 f'Score: {str(utility.thousands(self.score))}', 
-                True, self._font_color
+                True, self._current_font_color
             )
             self.score_text_rect = self.score_text.get_rect(
                 topleft=self.score_pos
