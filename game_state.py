@@ -182,7 +182,7 @@ class GameState():
         min_asteroid_speed = 100
         max_asteroid_speed = 150
         min_asteroid_dir_angle = 0.3
-        min_asteroid_dist = 100 # minimum distance from the player, center-to-center
+        min_asteroid_dist = 200 # minimum distance from the player, center-to-center
         new_asteroid_velocity_scale = 1.2
         min_broken_asteroids = 2
         max_broken_asteroids = 3
