@@ -163,9 +163,10 @@ class GameState():
         player_shot_power = 700
         player_animation_speed = 0.5
         player_folder_name = 'player'
+        player_remains_alive = True
+        player_hyperspace_length = 0.5 # in seconds
         dead_player_folder_name = 'dead_player'
         dead_player_animation_speed = 0.4
-        player_remains_alive = True
         level_friction = 0.1
         bullet_lifespan = 1.0
         
@@ -192,7 +193,8 @@ class GameState():
                         player_mass, player_turn_speed, level_friction, 
                         player_fire_rate, player_shot_power, 
                         player_animation_speed, player_folder_name, 
-                        player_remains_alive)
+                        player_remains_alive, player_hyperspace_length,
+                        self.bg_color)
         players.add(player)
 
         # initial blit/update
@@ -216,29 +218,33 @@ class GameState():
                     if event.key == pygame.K_ESCAPE:
                         self.allsprites.clear()
                         return 'intro'
-                    if event.key == pygame.K_LSHIFT:
+                    if (event.key == pygame.K_LSHIFT 
+                        and not player.in_hyperspace):
                         player.hyperspace(len(asteroids))
-                    if event.key == pygame.K_SPACE:
+                    if (event.key == pygame.K_SPACE
+                        and not player.in_hyperspace):
                         shot = player.fire(current_time, bullet_lifespan)
                         if shot is not None:
                             shots.add(shot)
                 elif event.type == pygame.KEYUP:
-                    if event.key == pygame.K_UP:
-                        player.thrusting = False
+                    if (event.key == pygame.K_UP
+                        and not player.in_hyperspace):
+                        player.engine_off()
 
             keys = pygame.key.get_pressed()
-            if keys[pygame.K_UP]:
-                player.thrust()
-                player.thrusting = True
-            if keys[pygame.K_LEFT]:
-                player.turn(1)
-            if keys[pygame.K_RIGHT]:
-                player.turn(-1)
+            if not player.in_hyperspace:
+                if keys[pygame.K_UP]:
+                    player.engine_on()
+                if keys[pygame.K_LEFT]:
+                    player.turn(1)
+                if keys[pygame.K_RIGHT]:
+                    player.turn(-1)
 
             # check if the player got hit by an asteroid - game over if so
-            colliding_asteroids = pygame.sprite.spritecollide(
-                player, asteroids, False, pygame.sprite.collide_mask
-            )
+            if not player.in_hyperspace:
+                colliding_asteroids = pygame.sprite.spritecollide(
+                    player, asteroids, False, pygame.sprite.collide_mask
+                )
             
             if len(colliding_asteroids) > 0 or not player.remains_alive:
                 dead_player = assets.DeadPlayer(dead_player_folder_name, 

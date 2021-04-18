@@ -14,7 +14,7 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, player_pos, player_dir, thrust_power, 
                  mass, turn_speed, fluid_density, fire_rate, 
                  shot_power, thrust_animation_speed, folder_name, 
-                 remains_alive):
+                 remains_alive, hyperspace_length, bg_color):
         """Constructs a Player object.
 
         Args:
@@ -55,7 +55,7 @@ class Player(pygame.sprite.Sprite):
         )
         
         self._thrust_power = thrust_power
-        self.thrusting = False
+        self._thrusting = False
         self.mass = mass
         self._turn_speed = turn_speed
         self._fluid_density = fluid_density
@@ -64,7 +64,12 @@ class Player(pygame.sprite.Sprite):
         self._fire_rate = 1000 / fire_rate
         self._last_shot_time = 0
         self._shot_power = shot_power
+        
         self.remains_alive = remains_alive
+        self._hyperspace_length = hyperspace_length
+        self._hyperspace_duration = 0
+        self.in_hyperspace = False
+        self.bg_color = bg_color
  
         # facing_direction is where thrust is applied
         # velocity_direction determines how drag will be applied
@@ -80,7 +85,7 @@ class Player(pygame.sprite.Sprite):
             delta_time (float): the time since the last update
         """
         # animate thrust
-        if not self.thrusting:
+        if not self._thrusting:
             self._image_counter = 0
         else:
             self._image_counter += self._thrust_animation_speed
@@ -90,6 +95,14 @@ class Player(pygame.sprite.Sprite):
         
         # rotate and move
         self._apply_turn(delta_time)
+        
+        if self.in_hyperspace:
+            self._hyperspace_duration += delta_time
+            self.image.fill(self.bg_color)
+            if self._hyperspace_duration >= self._hyperspace_length:
+                self._apply_turn(delta_time) # makes the image visible
+                self.in_hyperspace = False
+        
         self._calc_velocity(delta_time)
         change_position = self.velocity * delta_time
         self.rect = _check_collide(
@@ -112,10 +125,10 @@ class Player(pygame.sprite.Sprite):
                 * self.velocity.magnitude_squared())
 
         # calculate velocity direction
-        if self.velocity.magnitude() != 0:
-            self.velocity_direction = self.velocity.normalize()
+        if self.velocity.magnitude() == 0:
+            self.velocity_direction.update(0, 0)
         else:
-            self.velocity_direction = pygame.math.Vector2(0, 0)
+            self.velocity_direction = self.velocity.normalize()
 
         # calculate total forces and acceleration
         total_forces = ((self._acceleration_magnitude 
@@ -144,10 +157,16 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=self.rect.center)
 
     # functions for responding to input
-    def thrust(self):
+    def engine_on(self):
         """Causes thrust to be applied on this frame
         """
         self._acceleration_magnitude = self._thrust_power
+        self._thrusting = True
+        
+    def engine_off(self):
+        """Cancels thrusting animation
+        """
+        self._thrusting = False
 
     def turn(self, turn_dir):
         """Causes the player to turn a particular amount this frame.
@@ -191,9 +210,17 @@ class Player(pygame.sprite.Sprite):
             number_of_asteroids (int): the amount of asteroids 
             currently on screen
         """
+        # set up hyperspace jump
+        self.in_hyperspace = True
+        self._hyperspace_duration = 0
+        self.velocity.update(0, 0)
+        self._thrusting = 0
+        
+        # move player
         self.rect.center = (random.randint(0, self._area.width),
                             random.randint(0, self._area.height))
 
+        # random chance to kill the player
         max_percentage = 0.98
         min_percentage = 0.75
         asteroid_max = 60
