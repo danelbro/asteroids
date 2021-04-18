@@ -106,12 +106,11 @@ class Player(pygame.sprite.Sprite):
         # hyperspace animation
         if self.in_hyperspace:
             self._hyperspace_duration += delta_time
-            self._invisible = True
             if self._hyperspace_duration >= self._hyperspace_length:
-                self._invisible = False
                 self.in_hyperspace = False
                 
-        # flash the player if they're respawning
+        # flash the player image if they're respawning or 
+        # there's a level transition
         if not self.respawning:
             self._flash_counter = 0
         elif self.respawning:
@@ -124,7 +123,11 @@ class Player(pygame.sprite.Sprite):
                 self._flash_counter = 0
                 self.respawning = False
                 
-        self._flash(delta_time)
+        if (self._flash_counter == 0 
+            and not self.in_hyperspace):
+            self._invisible = False
+        else:
+            self._invisible = True
         
         self._update_image(delta_time)       
         self._calc_velocity(delta_time)
@@ -137,25 +140,11 @@ class Player(pygame.sprite.Sprite):
         self._acceleration_magnitude = 0
         self._turn_amount = 0
 
-    def _flash(self, delta_time):
-        if (self._flash_counter == 0 
-            and not self.in_hyperspace):
-            self._invisible = False
-        else:
-            self._invisible = True
-    
-    def reset(self, pos):
+    def _reset(self, pos):
         self.velocity.update(0,0)
         self.rect.center = pos
         self.facing_direction = pygame.math.Vector2(self._initial_dir)
         self._thrusting = False
-    
-    def respawn(self, respawn_length, speed):
-        self.alive = True
-        self.respawning = True
-        self._respawn_duration = 0
-        self._flash_speed = speed
-        self._respawn_length = respawn_length
             
     def _calc_velocity(self, delta_time):
         """Calculate velocity based on thrust and drag
@@ -199,9 +188,20 @@ class Player(pygame.sprite.Sprite):
         self.image = pygame.transform.rotate(self._original, direction_angle)
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect(center=self.rect.center)
+        
         if self._invisible:
             self.image.fill(self.bg_color)
 
+    def respawn(self, respawn_length, speed, 
+                new_pos, reset=True):
+        self.alive = True
+        self.respawning = True
+        self._respawn_duration = 0
+        self._flash_speed = speed
+        self._respawn_length = respawn_length
+        if reset:
+            self._reset(new_pos)
+    
     # functions for responding to input
     def engine_on(self):
         """Causes thrust to be applied on this frame
@@ -258,8 +258,8 @@ class Player(pygame.sprite.Sprite):
         """
         # set up hyperspace jump
         self.in_hyperspace = True
-        self._hyperspace_duration = 0
         self.velocity.update(0, 0)
+        self._hyperspace_duration = 0
         self._thrusting = 0
         
         # move player
@@ -277,7 +277,7 @@ class Player(pygame.sprite.Sprite):
                                                  asteroid_max)
         
         if random.random() > utility.lerp(min_percentage, max_percentage,
-                                  asteroids_normalized):
+                                          asteroids_normalized):
             self.remains_alive = False
         else:
             self.remains_alive = True

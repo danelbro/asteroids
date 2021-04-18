@@ -279,9 +279,9 @@ class GameState():
             if (not player.alive 
                 and current_time - player_hit_time >= player_respawn_time):
                 players.remove(dead_player)
-                player.reset(self.screen.get_rect().center)
                 player.respawn(player_respawn_time / 1000, 
-                               player_respawn_flash_speed)
+                               player_respawn_flash_speed,
+                               self.screen.get_rect().center)
                 players.add(player)
             
             # check whether asteroids got shot
@@ -309,7 +309,9 @@ class GameState():
                     shots.empty()
                     level_start_time = current_time + level_transition_time
                     player.respawn(level_transition_time / 1000,
-                                   level_transition_flash_speed)
+                                   level_transition_flash_speed,
+                                   self.screen.get_rect().center,
+                                   reset=False)
                     asteroids_spawned = False
                 
                 # start a new level if necessary
