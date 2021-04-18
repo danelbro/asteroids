@@ -154,7 +154,7 @@ class GameState():
         player_respawn_time = 1000 # in miliseconds
         base_score = 150
         self.score = 0
-        self.level = 0
+        self.level = 1
         self.lives = 3
         scoreboard_pos = (15, 10)
         
@@ -170,13 +170,15 @@ class GameState():
         player_folder_name = 'player'
         player_remains_alive = True
         player_hyperspace_length = 0.5 # in seconds
+        player_flash_speed = 0.25
+        player_respawn_length = 1.5
         dead_player_folder_name = 'dead_player'
         dead_player_animation_speed = 0.4
         level_friction = 0.1
         bullet_lifespan = 1.0
         
         # asteroid variables
-        level_asteroids_offset = 4
+        level_asteroids_offset = 3
         min_asteroid_speed = 100
         max_asteroid_speed = 150
         min_asteroid_dir_angle = 0.3
@@ -199,7 +201,8 @@ class GameState():
                         player_fire_rate, player_shot_power, 
                         player_animation_speed, player_folder_name, 
                         player_remains_alive, player_hyperspace_length,
-                        self.bg_color, self.lives)
+                        self.bg_color, self.lives, player_flash_speed,
+                        player_respawn_length)
         players.add(player)
 
         # initial blit/update
@@ -215,6 +218,10 @@ class GameState():
             self.clock.tick(self.fps)            
             delta_time = self.clock.get_time() / 1000 # converted to seconds
             current_time = pygame.time.get_ticks()
+            player_has_control = (player.alive
+                                  and not player.in_hyperspace)
+            player_is_vulnerable = (player_has_control 
+                                    and not player.respawning)
             
             # handle input
             for event in pygame.event.get():
@@ -225,20 +232,20 @@ class GameState():
                         self.allsprites.clear()
                         return 'intro'
                     if (event.key == pygame.K_LSHIFT 
-                        and not player.in_hyperspace):
+                        and player_has_control):
                         player.hyperspace(len(asteroids))
                     if (event.key == pygame.K_SPACE
-                        and not player.in_hyperspace):
+                        and player_has_control):
                         shot = player.fire(current_time, bullet_lifespan)
                         if shot is not None:
                             shots.add(shot)
                 elif event.type == pygame.KEYUP:
                     if (event.key == pygame.K_UP
-                        and not player.in_hyperspace):
+                        and player_has_control):
                         player.engine_off()
 
             keys = pygame.key.get_pressed()
-            if not player.in_hyperspace:
+            if player_has_control:
                 if keys[pygame.K_UP]:
                     player.engine_on()
                 if keys[pygame.K_LEFT]:
@@ -247,7 +254,7 @@ class GameState():
                     player.turn(-1)
 
             # check if the player got hit by an asteroid - lose a life if so
-            if not player.in_hyperspace and player_alive:
+            if player_is_vulnerable:
                 colliding_asteroids = pygame.sprite.spritecollide(
                     player, asteroids, False, pygame.sprite.collide_mask
                 )
@@ -261,38 +268,22 @@ class GameState():
                     )
                     players.remove(player)
                     player.lives -= 1
-                    player_alive = False
+                    self.lives = player.lives
+                    player.alive = False
                     player_hit_time = current_time
                     players.add(dead_player)
                     if player.lives < 1:
                         return 'end'
                     
             # respawn the player if necessary
-            if (not player_alive 
+            if (not player.alive 
                 and current_time - player_hit_time >= player_respawn_time):
                 players.remove(dead_player)
-                
-                distance = 0
-                too_close = [True] * len(asteroids)
-                while True in too_close:
-                    new_x = random.randint(0, self.screen.get_width())
-                    new_y = random.randint(0, self.screen.get_height())
-                    for i, asteroid in enumerate(asteroids):
-                        x_distance = math.fabs(asteroid.rect.centerx - new_x)
-                        y_distance = math.fabs(asteroid.rect.centery - new_y)
-                        distance = math.sqrt((x_distance ** 2) 
-                                            + (y_distance ** 2))
-                        if distance < min_asteroid_dist:
-                            too_close[i] = True
-                        else:
-                            too_close[i] = False
-                            
-                new_pos = pygame.math.Vector2(new_x, new_y)              
-                player.reset(new_pos)
+                player.reset(self.screen.get_rect().center)
+                player.respawn()
                 players.add(player)
-                player_alive = True
             
-            # check whether asteroids got hit
+            # check whether asteroids got shot
             shot_asteroids = pygame.sprite.groupcollide(
                 asteroids, shots, True, True,
                 pygame.sprite.collide_mask
@@ -308,30 +299,30 @@ class GameState():
                 if new_asteroids is not None:
                     asteroids.add(new_asteroids)
             
-            # check if all asteroids were destroyed - enter level 
-            # transition if so      
-            if len(asteroids) == 0 and asteroids_spawned:
-                shots.clear(self.screen, self.background)
-                shots.empty()
-                level_start_time = current_time + time_to_start
-                asteroids_spawned = False
+            # check if all asteroids were destroyed
+            if len(asteroids) == 0:
+                # enter level transition if so
+                if asteroids_spawned:
+                    self.level += 1
+                    shots.clear(self.screen, self.background)
+                    shots.empty()
+                    level_start_time = current_time + time_to_start
+                    asteroids_spawned = False
                 
-            # start a new level if necessary
-            if (len(asteroids) == 0 and
-                current_time - level_start_time >= time_to_start):
-                self.level += 1
-                scoreboard.show()
-                ast_list = assets.Asteroid.spawn((self.level 
-                                                  + level_asteroids_offset),
-                                                  min_asteroid_speed,
-                                                  max_asteroid_speed,
-                                                  min_asteroid_dir_angle,
-                                                  player.rect,
-                                                  min_asteroid_dist,
-                                                  self.screen.get_width(),
-                                                  self.screen.get_height())
-                asteroids.add(ast_list)
-                asteroids_spawned = True
+                # start a new level if necessary
+                if current_time - level_start_time >= time_to_start:
+                    scoreboard.show()
+                    ast_list = assets.Asteroid.spawn((self.level 
+                                                    + level_asteroids_offset),
+                                                    min_asteroid_speed,
+                                                    max_asteroid_speed,
+                                                    min_asteroid_dir_angle,
+                                                    player.rect,
+                                                    min_asteroid_dist,
+                                                    self.screen.get_width(),
+                                                    self.screen.get_height())
+                    asteroids.add(ast_list)
+                    asteroids_spawned = True
             
             # render
             dirty_rects = utility.draw_all(self.allsprites, self.screen, 

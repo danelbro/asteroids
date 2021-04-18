@@ -14,7 +14,8 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, player_pos, player_dir, thrust_power, 
                  mass, turn_speed, fluid_density, fire_rate, 
                  shot_power, thrust_animation_speed, folder_name, 
-                 remains_alive, hyperspace_length, bg_color, lives):
+                 remains_alive, hyperspace_length, bg_color, lives,
+                 flash_speed, respawn_length):
         """Constructs a Player object.
 
         Args:
@@ -55,9 +56,15 @@ class Player(pygame.sprite.Sprite):
         )
         
         self.lives = lives
-        
+        self._flash_speed = flash_speed
         self._thrust_power = thrust_power
         self._thrusting = False
+        self.alive = True
+        self.respawning = False
+        self._respawn_length = respawn_length
+        self._respawn_duration = 0
+        self._flash_counter = 0
+        self._invisible = False
         self.mass = mass
         self._turn_speed = turn_speed
         self._fluid_density = fluid_density
@@ -96,16 +103,30 @@ class Player(pygame.sprite.Sprite):
                 self._image_counter = 0
         self._original = self._images[int(self._image_counter)]
         
-        # rotate and move
-        self._apply_turn(delta_time)
-        
+        # hyperspace animation
         if self.in_hyperspace:
             self._hyperspace_duration += delta_time
-            self.image.fill(self.bg_color)
+            self._invisible = True
             if self._hyperspace_duration >= self._hyperspace_length:
-                self._apply_turn(delta_time) # makes the image visible
+                self._invisible = False
                 self.in_hyperspace = False
+                
+        # flash the player if they're respawning
+        if not self.respawning:
+            self._flash_counter = 0
+        elif self.respawning:
+            self._flash_counter += self._flash_speed
+            if self._flash_counter >= 1:
+                self._flash_counter = 0
+                
+            self._respawn_duration += delta_time
+            if self._respawn_duration >= self._respawn_length:
+                self._flash_counter = 0
+                self.respawning = False
+                
+        self._flash(delta_time)
         
+        self._update_image(delta_time)       
         self._calc_velocity(delta_time)
         change_position = self.velocity * delta_time
         self.rect = _check_collide(
@@ -116,10 +137,23 @@ class Player(pygame.sprite.Sprite):
         self._acceleration_magnitude = 0
         self._turn_amount = 0
 
+    def _flash(self, delta_time):
+        if (self._flash_counter == 0 
+            and not self.in_hyperspace):
+            self._invisible = False
+        else:
+            self._invisible = True
+    
     def reset(self, pos):
         self.velocity.update(0,0)
         self.rect.center = pos
         self.facing_direction = pygame.math.Vector2(self._initial_dir)
+        self._thrusting = False
+    
+    def respawn(self):
+        self.alive = True
+        self.respawning = True
+        self._respawn_duration = 0
     
     def _calc_velocity(self, delta_time):
         """Calculate velocity based on thrust and drag
@@ -147,7 +181,7 @@ class Player(pygame.sprite.Sprite):
         # apply acceleration to velocity
         self.velocity += acceleration * delta_time
 
-    def _apply_turn(self, delta_time):
+    def _update_image(self, delta_time):
         """Change direction and rotate the image accordingly
 
         Args:
@@ -163,6 +197,8 @@ class Player(pygame.sprite.Sprite):
         self.image = pygame.transform.rotate(self._original, direction_angle)
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect(center=self.rect.center)
+        if self._invisible:
+            self.image.fill(self.bg_color)
 
     # functions for responding to input
     def engine_on(self):

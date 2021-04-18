@@ -12,5 +12,5 @@ This is a clone of the original 'Asteroids' arcade game, written in Python using
 - Add enemy spaceships
 - ~~Fix hyperspace behaviour~~
 - Add options screen
-- Add lives
+- ~~Add lives~~
 - Add level transitions (partly complete)
