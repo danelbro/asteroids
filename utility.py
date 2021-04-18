@@ -64,3 +64,9 @@ def draw_all(sprites, screen, background, *args):
     
 def thousands(n):
     return "{:,}".format(n)
+
+def normalize(x, x_min, x_max):
+            return x - x_min / x_max - x_min
+        
+def lerp(min, max, t):
+            return (1 - t) * min + t * max

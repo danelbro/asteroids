@@ -13,7 +13,8 @@ class Player(pygame.sprite.Sprite):
     """
     def __init__(self, player_pos, player_dir, thrust_power, 
                  mass, turn_speed, fluid_density, fire_rate, 
-                 shot_power, animation_speed, folder_name, remains_alive):
+                 shot_power, thrust_animation_speed, folder_name, 
+                 remains_alive):
         """Constructs a Player object.
 
         Args:
@@ -35,37 +36,34 @@ class Player(pygame.sprite.Sprite):
             the player
         """
         super().__init__()
-        self.images = []
-        self.folder_name = os.path.join('data', 'sprites', folder_name)
-        self.number_of_images = len(os.listdir(self.folder_name))
-        for i in range(self.number_of_images):
+        self._images = []
+        folder = os.path.join('data', 'sprites', folder_name)
+        self._number_of_images = len(os.listdir(folder))
+        for i in range(self._number_of_images):
             image_name = folder_name + '-' + str(i) + '.png'
-            self.images.append(utility.load_image(image_name, 
-                                                  self.folder_name,
-                                                  colorkey=(255,255,255)))
-        self.image = self.images[0]
-        self.rect = self.image.get_rect()
-        self.image_counter = 0
-        self.thrust_animation_speed = animation_speed
-                                                    
-        self.original = self.image  # for applying rotation
-        screen = pygame.display.get_surface()
-        self.area = screen.get_rect()
-        self.initial_position = pygame.math.Vector2(player_pos)
-        self.rect.center = self.initial_position
+            self._images.append(utility.load_image(image_name, folder,
+                                                   colorkey=(255,255,255)))
+        self.image = self._images[0]
+        self._image_counter = 0
+        self._thrust_animation_speed = thrust_animation_speed
+        self._original = self.image  # for applying rotation
+        self._area = pygame.display.get_surface().get_rect()
         self.mask = pygame.mask.from_surface(self.image)
 
-        self.thrust_power = thrust_power
+        self.rect = self.image.get_rect(
+            center=pygame.math.Vector2(player_pos)
+        )
+        
+        self._thrust_power = thrust_power
         self.thrusting = False
         self.mass = mass
-        self.turn_speed = turn_speed
-        self.fluid_density = fluid_density
-        self.acceleration_magnitude = 0
-        self.turn_amount = 0
-        self.drag = 0
-        self.fire_rate = 1000 / fire_rate
-        self.last_shot_time = 0
-        self.shot_power = shot_power
+        self._turn_speed = turn_speed
+        self._fluid_density = fluid_density
+        self._acceleration_magnitude = 0
+        self._turn_amount = 0
+        self._fire_rate = 1000 / fire_rate
+        self._last_shot_time = 0
+        self._shot_power = shot_power
         self.remains_alive = remains_alive
  
         # facing_direction is where thrust is applied
@@ -83,34 +81,35 @@ class Player(pygame.sprite.Sprite):
         """
         # animate thrust
         if not self.thrusting:
-            self.image_counter = 0
+            self._image_counter = 0
         else:
-            self.image_counter += self.thrust_animation_speed
-            if self.image_counter >= self.number_of_images:
-                self.image_counter = 0
-        self.original = self.images[int(self.image_counter)]
+            self._image_counter += self._thrust_animation_speed
+            if self._image_counter >= self._number_of_images:
+                self._image_counter = 0
+        self._original = self._images[int(self._image_counter)]
         
         # rotate and move
-        self.apply_turn(delta_time)
-        self.calc_velocity(delta_time)
+        self._apply_turn(delta_time)
+        self._calc_velocity(delta_time)
         change_position = self.velocity * delta_time
-        self.rect = check_collide(
-            self.rect.move(change_position.x, change_position.y), self.area
+        self.rect = _check_collide(
+            self.rect.move(change_position.x, change_position.y), self._area
         )
 
         # reset
-        self.acceleration_magnitude = 0
-        self.turn_amount = 0
+        self._acceleration_magnitude = 0
+        self._turn_amount = 0
 
-    def calc_velocity(self, delta_time):
+    def _calc_velocity(self, delta_time):
         """Calculate velocity based on thrust and drag
 
         Args:
             delta_time (float): time since the last frame
         """
         # calculate drag
-        self.drag = (0.5 * self.fluid_density * 
-                      self.velocity.magnitude_squared())
+        drag = (0.5 
+                * self._fluid_density 
+                * self.velocity.magnitude_squared())
 
         # calculate velocity direction
         if self.velocity.magnitude() != 0:
@@ -119,28 +118,28 @@ class Player(pygame.sprite.Sprite):
             self.velocity_direction = pygame.math.Vector2(0, 0)
 
         # calculate total forces and acceleration
-        self.total_forces = ((self.acceleration_magnitude 
-                              * self.facing_direction) 
-                             + (self.drag * -self.velocity_direction))
-        self.acceleration = self.total_forces / self.mass
+        total_forces = ((self._acceleration_magnitude 
+                         * self.facing_direction) 
+                        + (drag * -self.velocity_direction))
+        acceleration = total_forces / self.mass
 
         # apply acceleration to velocity
-        self.velocity += self.acceleration * delta_time
+        self.velocity += acceleration * delta_time
 
-    def apply_turn(self, delta_time):
+    def _apply_turn(self, delta_time):
         """Change direction and rotate the image accordingly
 
         Args:
             delta_time (float): time since the last frame
         """
         self.facing_direction = self.facing_direction.rotate(
-            -self.turn_amount * delta_time
+            -self._turn_amount * delta_time
         )
 
         # rotate image
         direction_angle = -math.degrees(math.atan2(self.facing_direction.y, 
                                                   self.facing_direction.x))
-        self.image = pygame.transform.rotate(self.original, direction_angle)
+        self.image = pygame.transform.rotate(self._original, direction_angle)
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect(center=self.rect.center)
 
@@ -148,7 +147,7 @@ class Player(pygame.sprite.Sprite):
     def thrust(self):
         """Causes thrust to be applied on this frame
         """
-        self.acceleration_magnitude = self.thrust_power
+        self._acceleration_magnitude = self._thrust_power
 
     def turn(self, turn_dir):
         """Causes the player to turn a particular amount this frame.
@@ -157,7 +156,7 @@ class Player(pygame.sprite.Sprite):
             turn_dir (int): positive 1 for left turn, 
             negative 1 for right turn
         """
-        self.turn_amount = self.turn_speed * turn_dir
+        self._turn_amount = self._turn_speed * turn_dir
 
     def fire(self, current_time, lifespan):
         """Creates a Shot if allowed by the player's fire rate. 
@@ -173,14 +172,14 @@ class Player(pygame.sprite.Sprite):
             None: not enough time has passed since the last shot
             Shot: a shot is fired
         """
-        if current_time < self.last_shot_time + self.fire_rate:
+        if current_time < self._last_shot_time + self._fire_rate:
             return
-        elif current_time >= self.last_shot_time + self.fire_rate:
+        elif current_time >= self._last_shot_time + self._fire_rate:
             self.last_shot_time = current_time
             spawn_point = self.rect.center + (self.facing_direction 
                                               * (self.rect.height / 2))
             return Shot(self.facing_direction, spawn_point, 
-                        self.shot_power, lifespan)
+                        self._shot_power, lifespan)
 
     def hyperspace(self, number_of_asteroids):
         """Moves the player to a random location. 
@@ -192,24 +191,19 @@ class Player(pygame.sprite.Sprite):
             number_of_asteroids (int): the amount of asteroids 
             currently on screen
         """
-        self.rect.center = (random.randint(0, self.area.width),
-                            random.randint(0, self.area.height))
+        self.rect.center = (random.randint(0, self._area.width),
+                            random.randint(0, self._area.height))
 
         max_percentage = 0.98
         min_percentage = 0.75
         asteroid_max = 60
         asteroid_min = 1
         
-        def normalize(x, x_min, x_max):
-            return x - x_min / x_max - x_min
+        asteroids_normalized = utility.normalize(number_of_asteroids, 
+                                                 asteroid_min,
+                                                 asteroid_max)
         
-        asteroids_normalized = normalize(number_of_asteroids, asteroid_min,
-                                         asteroid_max)
-        
-        def lerp(min, max, t):
-            return (1 - t) * min + t * max
-        
-        if random.random() > lerp(min_percentage, max_percentage, 
+        if random.random() > utility.lerp(min_percentage, max_percentage,
                                   asteroids_normalized):
             self.remains_alive = False
         else:
@@ -219,59 +213,61 @@ class Player(pygame.sprite.Sprite):
 class DeadPlayer(pygame.sprite.Sprite):
     """Class to represent the Player after they have been killed."""
     def __init__(self, folder_name, animation_speed, pos, direction, 
-                 velocity, vel_direction, fluid_density, mass, screen):
+                 velocity, velocity_direction, fluid_density, mass):
         super().__init__()
-        self.images = []
-        self.folder_name = os.path.join('data', 'sprites', folder_name)
-        self.number_of_images = len(os.listdir(self.folder_name))
-        for i in range(self.number_of_images):
+        self._images = []
+        folder = os.path.join('data', 'sprites', folder_name)
+        self._number_of_images = len(os.listdir(folder))
+        for i in range(self._number_of_images):
             image_name = folder_name + '-' + str(i) + '.png'
-            self.images.append(utility.load_image(image_name, 
-                                                  self.folder_name,
-                                                  colorkey=(255,255,255)))
-        self.image = self.images[0]
-        self.original = self.image
-        self.direction = direction
+            self._images.append(utility.load_image(image_name, folder,
+                                                   colorkey=(255,255,255)))
+        self.image = self._images[0]
+        self._original = self.image
+        self._direction = direction
         self.rect = self.image.get_rect(center=pos)
-        self.rotate_image()
-        self.animation_speed = animation_speed
-        self.image_counter = 0
+        self._rotate_image()
+        self._animation_speed = animation_speed
+        self._image_counter = 0
         self.velocity = velocity
-        self.vel_direction = vel_direction
-        self.fluid_density = fluid_density
+        self.velocity_direction = velocity_direction
+        self._fluid_density = fluid_density
         self.mass = mass
-        self.area = screen.get_rect()
+        self._area = pygame.display.get_surface().get_rect()
         
     def update(self, delta_time, *args):
-        self.image_counter += self.animation_speed
-        if self.image_counter >= self.number_of_images:
+        self._image_counter += self._animation_speed
+        if self._image_counter >= self._number_of_images:
             self.kill()
         else:
-            self.original = self.images[int(self.image_counter)]
-            self.rotate_image()
-            self.calc_velocity(delta_time)
+            self._original = self._images[int(self._image_counter)]
+            self._rotate_image()
+            self._calc_velocity(delta_time)
             change_position = self.velocity * delta_time
-            self.rect = check_collide(self.rect.move(change_position.x, 
+            self.rect = _check_collide(self.rect.move(change_position.x, 
                                                      change_position.y),
-                                      self.area)
+                                      self._area)
             
-    def rotate_image(self):
-        direction_angle = -math.degrees(math.atan2(self.direction.y, 
-                                                  self.direction.x))
-        self.image = pygame.transform.rotate(self.original, direction_angle)
+    def _rotate_image(self):
+        direction_angle = -math.degrees(math.atan2(self._direction.y, 
+                                                   self._direction.x))
+        self.image = pygame.transform.rotate(self._original, direction_angle)
         self.rect = self.image.get_rect(center=self.rect.center)
     
-    def calc_velocity(self, delta_time):
-        drag = 0.5 * self.fluid_density * self.velocity.magnitude_squared()
+    def _calc_velocity(self, delta_time):
+        drag = (0.5 
+                * self._fluid_density 
+                * self.velocity.magnitude_squared())
+        
         if self.velocity.magnitude() != 0:
             self.velocity_direction = self.velocity.normalize()
         else:
             self.velocity_direction = pygame.math.Vector2(0, 0)
             
-        self.total_forces = drag * - self.velocity_direction
-        self.acceleration = self.total_forces / self.mass
-        
-        self.velocity += self.acceleration * delta_time
+        total_forces = drag * - self.velocity_direction
+        acceleration = total_forces / self.mass
+
+        self.velocity += acceleration * delta_time
     
 
 class Shot(pygame.sprite.Sprite):
@@ -291,21 +287,20 @@ class Shot(pygame.sprite.Sprite):
             lifespan (float): how long in seconds the shot will last
         """
         super().__init__()
-        self.folder_name = os.path.join('data', 'sprites', 'shot')
-        self.image = utility.load_image('shot.png', self.folder_name, -1)
-        self.rect = self.image.get_rect()
-        self.initial_position = pygame.math.Vector2(initial_position)
-        self.rect.center = initial_position
-        screen = pygame.display.get_surface()
-        self.area = screen.get_rect()
+        folder = os.path.join('data', 'sprites', 'shot')
+        self.image = utility.load_image('shot.png', folder, -1)
+        self.rect = self.image.get_rect(
+            center=pygame.math.Vector2(initial_position)
+        )
         self.mask = pygame.mask.from_surface(self.image)
+        self._area = pygame.display.get_surface().get_rect()
         
-        self.direction = direction
-        self.velocity = power * self.direction
-        self.rotate_image()
+        self._direction = direction
+        self.velocity = power * self._direction
+        self._rotate_image()
 
-        self.lifetime = 0.0
-        self.lifespan = lifespan
+        self._lifetime = 0.0
+        self._lifespan = lifespan
 
     def update(self, delta_time, *args):
         """Called every frame to move the shot
@@ -313,20 +308,20 @@ class Shot(pygame.sprite.Sprite):
         Args:
             delta_time (float): time since the last frame
         """
-        self.lifetime += delta_time
-        if self.lifetime >= self.lifespan:
+        self._lifetime += delta_time
+        if self._lifetime >= self._lifespan:
             self.kill()
         change_position = self.velocity * delta_time
-        self.rect = check_collide(self.rect.move(change_position.x, 
+        self.rect = _check_collide(self.rect.move(change_position.x, 
                                                  change_position.y), 
-                                  self.area)
+                                  self._area)
 
-    def rotate_image(self):
+    def _rotate_image(self):
         """Ensures the shot faces the direction it travels
         """
-        spin = -math.degrees(math.atan2(self.direction.y, 
-                                        self.direction.x))
-        self.image = pygame.transform.rotate(self.image, spin)
+        rotation = -math.degrees(math.atan2(self._direction.y, 
+                                            self._direction.x))
+        self.image = pygame.transform.rotate(self.image, rotation)
         self.rect = self.image.get_rect(center=self.rect.center)
         
 
@@ -335,28 +330,26 @@ class Asteroid(pygame.sprite.Sprite):
     
     Subclass of pygame.sprite.Sprite.
     """
-    def __init__(self, velocity, direction, image_number, pos=None, state=3):
+    def __init__(self, velocity, direction, image_number, 
+                 spin_amount, pos=None, state=3):
         super().__init__()
         self.state = state
-        self.folder_name = os.path.join('data', 'sprites', 'asteroid')
+        folder = os.path.join('data', 'sprites', 'asteroid')
+        self.image_number = image_number
         self.image = utility.load_image(
-            f'asteroid-{self.state}-{image_number}.png',
-            self.folder_name, -1
+            f'asteroid-{self.state}-{self.image_number}.png',
+            folder, -1
         )
-        self.rect = self.image.get_rect()
-        self.original = self.image
-        screen = pygame.display.get_surface()
-        self.area = screen.get_rect()
+        self.rect = self.image.get_rect(center=pos)
+        self._original = self.image
+        self._area = pygame.display.get_surface().get_rect()
         self.mask = pygame.mask.from_surface(self.image)
         
-        self.spin = 0
-        self.spin_amount = 0
-        while math.fabs(self.spin_amount) < 100:
-            self.spin_amount = random.randint(-200, 200)
+        self._spin = 0
+        self._spin_amount = spin_amount
             
         self.velocity = velocity
-        self.direction = direction.normalize()
-        self.rect.center = pos
+        self._direction = direction.normalize()
 
     def update(self, delta_time, *args):
         """Called every frame to move the asteroid.
@@ -364,26 +357,26 @@ class Asteroid(pygame.sprite.Sprite):
         Args:
             delta_time (float): time since the last frame
         """
-        velocity_vector = self.velocity * self.direction * delta_time
-        self.rect = check_collide(self.rect.move(velocity_vector), self.area)
-        self.rotate_image(delta_time)
+        velocity_vector = self.velocity * self._direction * delta_time
+        self.rect = _check_collide(self.rect.move(velocity_vector), self._area)
+        self._rotate_image(delta_time)
         
-    def rotate_image(self, delta_time):
+    def _rotate_image(self, delta_time):
         """Rotates the image by a set amount every frame.
 
         Args:
             delta_time (float): time since the last frame
         """
-        self.spin += self.spin_amount * delta_time
-        if self.spin >= 360 or self.spin <= -360:
-            self.spin = 0
-            self.image = self.original
+        self._spin += self._spin_amount * delta_time
+        if self._spin >= 360 or self._spin <= -360:
+            self._spin = 0
+            self.image = self._original
         else:
-            self.image = pygame.transform.rotate(self.original, self.spin)
+            self.image = pygame.transform.rotate(self._original, self._spin)
         self.rect = self.image.get_rect(center=self.rect.center)
         self.mask = pygame.mask.from_surface(self.image)
 
-    def hit(self, velocity_scale):
+    def hit(self, velocity_scale, number_to_spawn):
         """Returns new asteroids if required. 
         
         Spawns two new asteroids if the asteroid that got hit is large
@@ -398,25 +391,68 @@ class Asteroid(pygame.sprite.Sprite):
             large enough
             None: this is already the smallest asteroid size, so no 
             child asteroids are created.
-        """
+        """        
         if self.state > 1:
-            new_asteroids_state = self.state - 1
-            first_image_number = random.randint(0, 2)
-            second_image_number = first_image_number
-            while second_image_number == first_image_number:
-                second_image_number = random.randint(0, 2)
+            new_list = []
+            rotation = 0
+            spawn_cycles = 0
+            state = self.state - 1
+            new_velocity = self.velocity * velocity_scale
+            
+            if number_to_spawn == 2:
+                rotation = 180 / number_to_spawn
+                spawn_cycles = int(number_to_spawn / 2)            
+                even = True
+            elif number_to_spawn % 2 == 0:
+                rotation = 180 / (number_to_spawn - 1)
+                spawn_cycles = int(number_to_spawn / 2)
+                even = True
+            else:
+                rotation = 180 / number_to_spawn
+                spawn_cycles = int((number_to_spawn - 1) / 2)
+                even = False
                 
-            new_asteroid_1 = Asteroid(self.velocity * velocity_scale, 
-                                      self.direction.rotate(90),
-                                      first_image_number,
-                                      self.rect.center,
-                                      new_asteroids_state)
-            new_asteroid_2 = Asteroid(self.velocity * velocity_scale,
-                                      self.direction.rotate(-90),
-                                      second_image_number,
-                                      self.rect.center,
-                                      new_asteroids_state)
-            return [new_asteroid_1, new_asteroid_2]             
+            for i in range(spawn_cycles):
+                first_image_number = random.randint(0,2)
+                second_image_number = first_image_number
+                while second_image_number == first_image_number:
+                    second_image_number = random.randint(0,2)
+                
+                reflect = rotation * (i + 1)
+                
+                new_asteroid_1 = Asteroid(
+                    new_velocity, 
+                    self._direction.rotate(reflect), first_image_number, 
+                    self._spin_amount, self.rect.center, state
+                )
+                               
+                new_asteroid_2 = Asteroid(
+                    new_velocity,
+                    self._direction.rotate(-reflect), second_image_number, 
+                    self._spin_amount, self.rect.center, state
+                )
+                    
+                new_list.extend([new_asteroid_1, new_asteroid_2])
+                
+            if not even:
+                if len(new_list) > 0:
+                    old_image_number = new_list[-1].image_number
+                    image_number = old_image_number
+                    while image_number == old_image_number:
+                        image_number = random.randint(0,2)
+
+                else: # only 1 to spawn
+                    image_number = random.randint(0, 2)
+                
+                odd_asteroid = Asteroid(new_velocity,
+                                        self._direction.rotate(180),
+                                        image_number, self._spin_amount,
+                                        self.rect.center, state)
+                
+                new_list.append(odd_asteroid)
+            
+            return new_list
+        
         else: 
             return
 
@@ -444,17 +480,19 @@ class Asteroid(pygame.sprite.Sprite):
         asteroid_list = []
         while number_of_asteroids > 0:
             # get a random acceptable velocity for this asteroid
-            asteroid_speed = random.randint(min_speed, max_speed)
+            speed = random.randint(min_speed, max_speed)
 
             # get a random acceptable direction for this asteroid
-            asteroid_direction = pygame.math.Vector2(0, 0)
-            while (math.fabs(asteroid_direction.x) 
-                   < min_angle or 
-                   math.fabs(asteroid_direction.y) 
-                   < min_angle):
-                asteroid_direction.x = random.uniform(-1.0, 1.0)
-                asteroid_direction.y = random.uniform(-1.0, 1.0)
-
+            direction = pygame.math.Vector2(0, 0)
+            while (math.fabs(direction.x) < min_angle or 
+                   math.fabs(direction.y) < min_angle):
+                direction.x = random.uniform(-1.0, 1.0)
+                direction.y = random.uniform(-1.0, 1.0)
+            
+            spin_amount = 0
+            while math.fabs(spin_amount) < 100:
+                spin_amount = random.randint(-200, 200)
+            
             # get a random acceptable position for this asteroid
             position_x = player_pos.centerx
             position_y = player_pos.centery
@@ -468,10 +506,8 @@ class Asteroid(pygame.sprite.Sprite):
             
             image_number = random.randint(0,2)
             
-            asteroid_list.append(Asteroid(asteroid_speed, 
-                                          asteroid_direction, 
-                                          image_number,
-                                          position))
+            asteroid_list.append(Asteroid(speed, direction, image_number, 
+                                          spin_amount, position))
             number_of_asteroids -= 1
 
         return asteroid_list
@@ -511,17 +547,17 @@ class Scoreboard():
             level (int): starting level
             score (int): starting score
         """
-        self.font = pygame.ftfont.Font(font_file, size)
-        self.font_color = font_color
+        self._font = pygame.ftfont.Font(font_file, size)
+        self._font_color = font_color
         self.pos = pos
         self.level = level
         self.score = score
 
-        self.level_text = self.font.render(f'Level {self.level}',
-                                           True, self.font_color)
+        self.level_text = self._font.render(f'Level {self.level}',
+                                           True, self._font_color)
         self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
-        self.score_text = self.font.render(f'Score: {str(self.score)}',
-                                           True, self.font_color)
+        self.score_text = self._font.render(f'Score: {str(self.score)}',
+                                           True, self._font_color)
         self.score_pos = (self.pos[0], 
                           (self.pos[1] 
                            + self.level_text_rect.height))
@@ -529,7 +565,6 @@ class Scoreboard():
             topleft=self.score_pos
         )
                             
-
     def update(self, delta_time, level, score):
         """Updates level or score.
         
@@ -542,14 +577,19 @@ class Scoreboard():
         """
         if level != self.level:
             self.level = level
-            self.level_text = self.font.render(f'Level {self.level}', 
-                                               True, self.font_color)
-            self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
+            self.level_text = self._font.render(
+                f'Level {self.level}',
+                True, self._font_color
+            )
+            self.level_text_rect = self.level_text.get_rect(
+                topleft=self.pos
+            )
+
         if score != self.score:
             self.score = score
-            self.score_text = self.font.render(
+            self.score_text = self._font.render(
                 f'Score: {str(utility.thousands(self.score))}', 
-                True, self.font_color
+                True, self._font_color
             )
             self.score_text_rect = self.score_text.get_rect(
                 topleft=self.score_pos
@@ -598,7 +638,7 @@ class Highscores():
     def __init__(self, new_score, font_file, font_size, font_color, 
                  x_pos, y_pos, padding, highlight_color):
         highscores = []
-        self.new_highscore_position = -1
+        new_highscore_position = -1
         try:
             with open('highscores.txt') as f:
                 highscores_raw = f.readlines()
@@ -615,7 +655,7 @@ class Highscores():
                 for i, score in enumerate(sorted(highscores, reverse=True)):
                     if new_score > 0 and new_score > score:
                         highscores.insert(i, new_score)
-                        self.new_highscore_position = i
+                        new_highscore_position = i
                         highscores.pop()
                         new_highscore = True
                         break
@@ -633,31 +673,31 @@ class Highscores():
                 for i, score in enumerate(sorted(highscores, reverse=True)):
                     if new_score > 0 and new_score >= score:
                         highscores.insert(i, new_score)
-                        self.new_highscore_position = i
+                        new_highscore_position = i
                         break
                 else:
                     # the new_score isn't higher than any current 
                     # scores, but since there's space in the list 
                     # we add it
                     highscores.append(new_score)
-                    self.new_highscore_position = len(highscores) - 1
+                    new_highscore_position = len(highscores) - 1
             else:
                 # the new_score is 0
                 new_highscore = False
                         
         except FileNotFoundError:
             with open('highscores.txt', 'x') as f:
-                self.new_highscore_position = 0
+                new_highscore_position = 0
                 highscores.append(new_score)
                 new_highscore = True
 
         highscores.sort(reverse=True)
-        self.font = pygame.ftfont.Font(font_file, font_size)
-        self.font_color = font_color
+        
+        font = pygame.ftfont.Font(font_file, font_size)
+        font_color
+        self._scores_list = []
         self.x_pos = x_pos
         self.y_pos = y_pos
-        self.padding = padding
-        self.scores_list = []
 
         if new_highscore:
             title_text = 'NEW HIGHSCORE'
@@ -665,41 +705,41 @@ class Highscores():
             title_text = 'HIGHSCORES'
             
         new_highscore_parts = {}
-        new_highscore_text = self.font.render(title_text, 
-                                              True, self.font_color)
+        new_highscore_text = font.render(title_text, True, font_color)
         new_highscore_text_rect = new_highscore_text.get_rect()
-        self.text_height = new_highscore_text_rect.height
         new_highscore_parts['text'] = new_highscore_text
         new_highscore_parts['text_rect'] = new_highscore_text_rect
-        self.scores_list.append(new_highscore_parts)
+        
+        text_height = new_highscore_text_rect.height
+        self._scores_list.append(new_highscore_parts)
         
         for i, score in enumerate(highscores):
             score_parts = {}
             score_string = f'{str(i + 1)}. {str(utility.thousands(score))}'
-            if i == self.new_highscore_position:
-                score_text = self.font.render(score_string, True,
-                                              self.font_color,
-                                              highlight_color)
+            
+            if i == new_highscore_position:
+                score_text = font.render(score_string, True, font_color, 
+                                         highlight_color)
                 score_text.convert_alpha()
             else:
-                score_text = self.font.render(score_string, True, 
-                                              self.font_color)
+                score_text = font.render(score_string, True, font_color)
+
             score_text_rect = score_text.get_rect()
-            self.text_height = score_text_rect.height
+
             score_parts['text'] = score_text
             score_parts['text_rect'] = score_text_rect
-            self.scores_list.append(score_parts)
+            self._scores_list.append(score_parts)
             
         # position rects
-        for i in range(len(self.scores_list)):
+        for i in range(len(self._scores_list)):
             text_position = (self.x_pos,
                              (self.y_pos 
-                              + (self.text_height * i) 
-                              + (self.padding * i)))
-            self.scores_list[i]['text_rect'].midtop = text_position
+                              + (text_height * i) 
+                              + (padding * i)))
+            self._scores_list[i]['text_rect'].midtop = text_position
         
-        self.height = (self.scores_list[-1]['text_rect'].bottom 
-                       - self.scores_list[0]['text_rect'].top)
+        self.height = (self._scores_list[-1]['text_rect'].bottom 
+                       - self._scores_list[0]['text_rect'].top)
                        
         with open('highscores.txt', 'w') as f:
             for i, score in enumerate(highscores):
@@ -710,7 +750,7 @@ class Highscores():
     
     def clear(self, screen, background):
         rects = []
-        for score_text in self.scores_list:
+        for score_text in self._scores_list:
             rects.append(screen.blit(background, 
                                      score_text['text_rect'], 
                                      score_text['text_rect']))
@@ -718,7 +758,7 @@ class Highscores():
     
     def draw(self, screen):
         rects = []
-        for score_text in self.scores_list:
+        for score_text in self._scores_list:
             rects.append(screen.blit(score_text['text'], 
                                      score_text['text_rect']))
         return rects
@@ -742,40 +782,38 @@ class Buttons():
             padding (int): padding between buttons and between button
             edge and text
         """
-        self.font = pygame.ftfont.Font(font_file, size)
-        self.font_color = font_color
-        self.button_color = button_color
+        font = pygame.ftfont.Font(font_file, size)
         self.x_pos = x_pos
         self.y_pos = y_pos
-        self.padding = padding
-
+        self._padding = padding
         self.buttons = []
-        self.widest = 0
-        self.highest = 0
+        
+        widest = 0
+        highest = 0
 
         # render labels and get the maximum width and height. 
         for i, label in enumerate(labels):
             button_parts = {}
-            button_text = self.font.render(label, True, self.font_color)
+            button_text = font.render(label, True, font_color)
             button_text_rect = button_text.get_rect()
-            if button_text_rect.width > self.widest:
-                self.widest = button_text_rect.width
-            if button_text_rect.height > self.highest:
-                self.highest = button_text_rect.height
+            if button_text_rect.width > widest:
+                widest = button_text_rect.width
+            if button_text_rect.height > highest:
+                highest = button_text_rect.height
             button_parts['label'] = label
             button_parts['button_text'] = button_text
             button_parts['button_text_rect'] = button_text_rect
             self.buttons.append(button_parts)
         
         # render buttons
-        self.button_width = self.widest + self.padding * 2
-        self.button_height = self.highest + self.padding * 2
+        self._button_width = widest + (self._padding * 2)
+        self._button_height = highest + (self._padding * 2)
         for button_group in self.buttons:
-            button_rect = pygame.Rect((0,0), (self.button_width, 
-                                              self.button_height))
+            button_rect = pygame.Rect((0,0), (self._button_width, 
+                                              self._button_height))
             button = pygame.Surface(button_rect.size, 
                                     flags=pygame.SRCALPHA).convert_alpha()
-            button.fill(self.button_color)
+            button.fill(button_color)
             button_group['button'] = button
             button_group['button_rect'] = button_rect
         
@@ -788,13 +826,13 @@ class Buttons():
         for i in range(len(self.buttons)):
             button_position = (self.x_pos, 
                                self.y_pos 
-                               + (self.button_height * i) 
-                               + (self.padding * i))
+                               + (self._button_height * i) 
+                               + (self._padding * i))
             text_position = (self.x_pos, 
                              self.y_pos 
-                             + (self.button_height * i) 
-                             + self.padding 
-                             + (self.padding * i))
+                             + (self._button_height * i) 
+                             + self._padding 
+                             + (self._padding * i))
                 
             self.buttons[i]['button_rect'].midtop = button_position
             self.buttons[i]['button_text_rect'].midtop = text_position
@@ -826,7 +864,7 @@ class Buttons():
                                      button_group['button_text_rect']))
         return rects
 
-def check_collide(newpos, area):
+def _check_collide(newpos, area):
     """Implements wraparound behaviour.
 
     Args:

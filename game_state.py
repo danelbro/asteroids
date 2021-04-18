@@ -2,6 +2,7 @@ import pygame
 import sys
 import assets
 import utility
+import random
 
 class GameState():
     """A class to control the game state, containing functions for
@@ -175,6 +176,8 @@ class GameState():
         min_asteroid_dir_angle = 0.3
         min_asteroid_dist = 100 # minimum distance from the player
         new_asteroid_velocity_scale = 1.2
+        min_broken_asteroids = 2
+        max_broken_asteroids = 3
                     
         # initialise scoreboard, sprite groups, player and asteroids
         scoreboard = assets.Scoreboard(self.font_file, 24, self.font_color, 
@@ -232,7 +235,7 @@ class GameState():
                                                 player.velocity,
                                                 player.velocity_direction,
                                                 level_friction, 
-                                                player.mass, self.screen)
+                                                player.mass)
                 players.remove(player)
                 players.add(dead_player)
                 return 'end'
@@ -244,7 +247,11 @@ class GameState():
             
             for asteroid, shot_list in shot_asteroids.items():
                 self.score += int(base_score / asteroid.state)
-                new_asteroids = asteroid.hit(new_asteroid_velocity_scale)
+                number_to_spawn = random.randint(min_broken_asteroids,
+                                                 max_broken_asteroids)
+                new_asteroids = asteroid.hit(
+                    new_asteroid_velocity_scale, number_to_spawn
+                )
                 if new_asteroids is not None:
                     asteroids.add(new_asteroids)
 
@@ -328,7 +335,7 @@ class GameState():
         
         highscores_y_pos = (score_heading_y_pos 
                             + score_heading.height 
-                            + (padding * 4))
+                            + padding)
         
         highscores = assets.Highscores(self.score, self.font_file, 36,
                                 self.font_color,
