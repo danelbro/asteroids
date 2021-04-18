@@ -150,11 +150,13 @@ class Player(pygame.sprite.Sprite):
         self.facing_direction = pygame.math.Vector2(self._initial_dir)
         self._thrusting = False
     
-    def respawn(self):
+    def respawn(self, respawn_length, speed):
         self.alive = True
         self.respawning = True
         self._respawn_duration = 0
-    
+        self._flash_speed = speed
+        self._respawn_length = respawn_length
+            
     def _calc_velocity(self, delta_time):
         """Calculate velocity based on thrust and drag
 

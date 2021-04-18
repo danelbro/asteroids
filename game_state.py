@@ -147,7 +147,7 @@ class GameState():
             None: the player quit the game
         """
         # initial variables
-        time_to_start = 1000
+        level_transition_time = 1000
         asteroids_spawned = False
         player_alive = True
         player_hit_time = 0
@@ -170,8 +170,8 @@ class GameState():
         player_folder_name = 'player'
         player_remains_alive = True
         player_hyperspace_length = 0.5 # in seconds
-        player_flash_speed = 0.25
-        player_respawn_length = 1.5
+        player_respawn_flash_speed = 0.25
+        level_transition_flash_speed = 0.1
         dead_player_folder_name = 'dead_player'
         dead_player_animation_speed = 0.4
         level_friction = 0.1
@@ -201,8 +201,8 @@ class GameState():
                         player_fire_rate, player_shot_power, 
                         player_animation_speed, player_folder_name, 
                         player_remains_alive, player_hyperspace_length,
-                        self.bg_color, self.lives, player_flash_speed,
-                        player_respawn_length)
+                        self.bg_color, self.lives, player_respawn_flash_speed,
+                        player_respawn_time / 1000)
         players.add(player)
 
         # initial blit/update
@@ -280,7 +280,8 @@ class GameState():
                 and current_time - player_hit_time >= player_respawn_time):
                 players.remove(dead_player)
                 player.reset(self.screen.get_rect().center)
-                player.respawn()
+                player.respawn(player_respawn_time / 1000, 
+                               player_respawn_flash_speed)
                 players.add(player)
             
             # check whether asteroids got shot
@@ -306,11 +307,13 @@ class GameState():
                     self.level += 1
                     shots.clear(self.screen, self.background)
                     shots.empty()
-                    level_start_time = current_time + time_to_start
+                    level_start_time = current_time + level_transition_time
+                    player.respawn(level_transition_time / 1000,
+                                   level_transition_flash_speed)
                     asteroids_spawned = False
                 
                 # start a new level if necessary
-                if current_time - level_start_time >= time_to_start:
+                if current_time - level_start_time >= 0:
                     scoreboard.show()
                     ast_list = assets.Asteroid.spawn((self.level 
                                                     + level_asteroids_offset),
