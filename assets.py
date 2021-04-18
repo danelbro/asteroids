@@ -14,7 +14,7 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, player_pos, player_dir, thrust_power, 
                  mass, turn_speed, fluid_density, fire_rate, 
                  shot_power, thrust_animation_speed, folder_name, 
-                 remains_alive, hyperspace_length, bg_color):
+                 remains_alive, hyperspace_length, bg_color, lives):
         """Constructs a Player object.
 
         Args:
@@ -54,6 +54,8 @@ class Player(pygame.sprite.Sprite):
             center=pygame.math.Vector2(player_pos)
         )
         
+        self.lives = lives
+        
         self._thrust_power = thrust_power
         self._thrusting = False
         self.mass = mass
@@ -73,7 +75,8 @@ class Player(pygame.sprite.Sprite):
  
         # facing_direction is where thrust is applied
         # velocity_direction determines how drag will be applied
-        self.facing_direction = pygame.math.Vector2(player_dir)
+        self._initial_dir = player_dir
+        self.facing_direction = pygame.math.Vector2(self._initial_dir)
         self.velocity = pygame.math.Vector2(0, 0)
         self.velocity_direction = pygame.math.Vector2(0, 0)
 
@@ -113,6 +116,11 @@ class Player(pygame.sprite.Sprite):
         self._acceleration_magnitude = 0
         self._turn_amount = 0
 
+    def reset(self, pos):
+        self.velocity.update(0,0)
+        self.rect.center = pos
+        self.facing_direction = pygame.math.Vector2(self._initial_dir)
+    
     def _calc_velocity(self, delta_time):
         """Calculate velocity based on thrust and drag
 
@@ -521,14 +529,13 @@ class Asteroid(pygame.sprite.Sprite):
                 spin_amount = random.randint(-200, 200)
             
             # get a random acceptable position for this asteroid
-            position_x = player_pos.centerx
-            position_y = player_pos.centery
-            while (math.fabs(position_x - player_pos.centerx) 
-                   < min_player_distance or
-                   math.fabs(position_y - player_pos.centery) 
-                   < min_player_distance):
+            distance = 0
+            while distance < min_player_distance:
                 position_x = random.randint(0, width)
                 position_y = random.randint(0, height)
+                x_distance = math.fabs(position_x - player_pos.centerx)
+                y_distance = math.fabs(position_y - player_pos.centery)
+                distance = math.sqrt((x_distance ** 2) + (y_distance ** 2))
             position = pygame.math.Vector2(position_x, position_y)
             
             image_number = random.randint(0,2)
@@ -563,7 +570,7 @@ class Scoreboard():
     score and remaining lives.
     """
     def __init__(self, font_file, size, font_color,
-                 bg_color, pos, level, score):
+                 bg_color, pos, level, score, lives):
         """Constructs a Scoreboard object.
 
         Args:
@@ -581,6 +588,7 @@ class Scoreboard():
         self.pos = pos
         self.level = level
         self.score = score
+        self.lives = lives
 
         if self.level == 0:
             self.hide()
@@ -599,22 +607,32 @@ class Scoreboard():
         self.score_text_rect = self.score_text.get_rect(
             topleft=self.score_pos
         )
+        self.lives_text = self._font.render(f'Lives: {str(self.lives)}',
+                                            True, self._current_font_color)
+        self.lives_pos = (self.pos[0],
+                          (self.score_pos[1]
+                           + self.score_text_rect.height))
+        self.lives_text_rect = self.lives_text.get_rect(
+            topleft = self.lives_pos
+        )
         
     def show(self):
         self._current_font_color = self._font_color
         self.level_text = self._font.render(
-                f'Level {self.level}',
-                True, self._current_font_color
-            )
+            f'Level {self.level}', True, self._current_font_color
+        )
         self.score_text = self._font.render(
-                f'Score: {str(utility.thousands(self.score))}', 
-                True, self._current_font_color
-            )
+            f'Score: {str(utility.thousands(self.score))}', 
+            True, self._current_font_color
+        )
+        self.lives_text = self._font.render(
+            f'Lives: {str(self.lives)}', True, self._current_font_color
+        )
         
     def hide(self):
         self._current_font_color = self._bg_color
                             
-    def update(self, delta_time, level, score):
+    def update(self, delta_time, level, score, lives):
         """Updates level or score.
         
         Called every frame. Updates level or score if they are 
@@ -643,6 +661,16 @@ class Scoreboard():
             self.score_text_rect = self.score_text.get_rect(
                 topleft=self.score_pos
             )
+            
+        if lives != self.lives:
+            self.lives = lives
+            self.lives_text = self._font.render(
+                f'Lives: {str(self.lives)}', True, 
+                self._current_font_color
+            )
+            self.lives_text_rect = self.lives_text.get_rect(
+                topleft=self.lives_pos
+            )
 
     def clear(self, screen, background):
         """Erases the scoreboard so it can be redrawn.
@@ -662,6 +690,8 @@ class Scoreboard():
                                  self.level_text_rect, self.level_text_rect))
         rects.append(screen.blit(background, 
                                  self.score_text_rect, self.score_text_rect))
+        rects.append(screen.blit(background,
+                                 self.lives_text_rect, self.lives_text_rect))
         return rects
 
     def draw(self, screen):
@@ -676,6 +706,7 @@ class Scoreboard():
         rects = []
         rects.append(screen.blit(self.level_text, self.level_text_rect))
         rects.append(screen.blit(self.score_text, self.score_text_rect))
+        rects.append(screen.blit(self.lives_text, self.lives_text_rect))
         return rects
 
 
