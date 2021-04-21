@@ -5,6 +5,35 @@ import re
 import math
 import utility
 
+
+class Gun():
+    def __init__(self, fire_rate, shot_power):
+        self._fire_rate = fire_rate
+        self._shot_power = shot_power
+        self._last_shot_time = 0
+    
+    def fire(self, current_time, lifespan, shooter_rect, 
+             shot_direction):
+        """Creates a Shot if allowed by the gun's fire rate. 
+
+        Args:
+            current_time (int): 
+            lifespan (float): 
+
+        Returns:
+            None: not enough time has passed since the last shot
+            Shot: a shot is fired
+        """
+        if current_time < self._last_shot_time + self._fire_rate:
+            return None
+        elif current_time >= self._last_shot_time + self._fire_rate:
+            self.last_shot_time = current_time
+            spawn_point = shooter_rect.center + (shot_direction
+                                              * (shooter_rect.height / 2))
+            return Shot(shot_direction, spawn_point, 
+                        self._shot_power, lifespan)
+
+
 class Player(pygame.sprite.Sprite):
     """A class to represent a controllable spaceship. 
     
@@ -70,9 +99,7 @@ class Player(pygame.sprite.Sprite):
         self._fluid_density = fluid_density
         self._acceleration_magnitude = 0
         self._turn_amount = 0
-        self._fire_rate = 1000 / fire_rate
-        self._last_shot_time = 0
-        self._shot_power = shot_power
+        self.gun = Gun(1000 / fire_rate, shot_power)
         
         self.remains_alive = remains_alive
         self._hyperspace_length = hyperspace_length
@@ -87,7 +114,6 @@ class Player(pygame.sprite.Sprite):
         self.velocity = pygame.math.Vector2(0, 0)
         self.velocity_direction = pygame.math.Vector2(0, 0)
 
-    # movement functions
     def update(self, delta_time, *args):
         """Called every frame to move the player.
 
@@ -139,59 +165,7 @@ class Player(pygame.sprite.Sprite):
         # reset
         self._acceleration_magnitude = 0
         self._turn_amount = 0
-
-    def _reset(self, pos):
-        self.velocity.update(0,0)
-        self.rect.center = pos
-        self.facing_direction = pygame.math.Vector2(self._initial_dir)
-        self._thrusting = False
-            
-    def _calc_velocity(self, delta_time):
-        """Calculate velocity based on thrust and drag
-
-        Args:
-            delta_time (float): time since the last frame
-        """
-        # calculate drag
-        drag = (0.5 
-                * self._fluid_density 
-                * self.velocity.magnitude_squared())
-
-        # calculate velocity direction
-        if self.velocity.magnitude() == 0:
-            self.velocity_direction.update(0, 0)
-        else:
-            self.velocity_direction = self.velocity.normalize()
-
-        # calculate total forces and acceleration
-        total_forces = ((self._acceleration_magnitude 
-                         * self.facing_direction) 
-                        + (drag * -self.velocity_direction))
-        acceleration = total_forces / self.mass
-
-        # apply acceleration to velocity
-        self.velocity += acceleration * delta_time
-
-    def _update_image(self, delta_time):
-        """Change direction and rotate the image accordingly
-
-        Args:
-            delta_time (float): time since the last frame
-        """
-        self.facing_direction = self.facing_direction.rotate(
-            -self._turn_amount * delta_time
-        )
-
-        # rotate image
-        direction_angle = -math.degrees(math.atan2(self.facing_direction.y, 
-                                                  self.facing_direction.x))
-        self.image = pygame.transform.rotate(self._original, direction_angle)
-        self.mask = pygame.mask.from_surface(self.image)
-        self.rect = self.image.get_rect(center=self.rect.center)
         
-        if self._invisible:
-            self.image.fill(self.bg_color)
-
     def respawn(self, respawn_length, speed, 
                 new_pos, reset=True):
         self.alive = True
@@ -202,7 +176,6 @@ class Player(pygame.sprite.Sprite):
         if reset:
             self._reset(new_pos)
     
-    # functions for responding to input
     def engine_on(self):
         """Causes thrust to be applied on this frame
         """
@@ -222,29 +195,6 @@ class Player(pygame.sprite.Sprite):
             negative 1 for right turn
         """
         self._turn_amount = self._turn_speed * turn_dir
-
-    def fire(self, current_time, lifespan):
-        """Creates a Shot if allowed by the player's fire rate. 
-        
-        The shot travels in the direction the player is currently 
-        facing.
-
-        Args:
-            current_time (int): 
-            lifespan (float): 
-
-        Returns:
-            None: not enough time has passed since the last shot
-            Shot: a shot is fired
-        """
-        if current_time < self._last_shot_time + self._fire_rate:
-            return
-        elif current_time >= self._last_shot_time + self._fire_rate:
-            self.last_shot_time = current_time
-            spawn_point = self.rect.center + (self.facing_direction 
-                                              * (self.rect.height / 2))
-            return Shot(self.facing_direction, spawn_point, 
-                        self._shot_power, lifespan)
 
     def hyperspace(self, number_of_asteroids):
         """Moves the player to a random location. 
@@ -281,6 +231,48 @@ class Player(pygame.sprite.Sprite):
             self.remains_alive = False
         else:
             self.remains_alive = True
+
+    def _reset(self, pos):
+        self.velocity.update(0,0)
+        self.rect.center = pos
+        self.facing_direction = pygame.math.Vector2(self._initial_dir)
+        self._thrusting = False
+            
+    def _calc_velocity(self, delta_time):
+        # calculate drag
+        drag = (0.5 
+                * self._fluid_density 
+                * self.velocity.magnitude_squared())
+
+        # calculate velocity direction
+        if self.velocity.magnitude() == 0:
+            self.velocity_direction.update(0, 0)
+        else:
+            self.velocity_direction = self.velocity.normalize()
+
+        # calculate total forces and acceleration
+        total_forces = ((self._acceleration_magnitude 
+                         * self.facing_direction) 
+                        + (drag * -self.velocity_direction))
+        acceleration = total_forces / self.mass
+
+        # apply acceleration to velocity
+        self.velocity += acceleration * delta_time
+
+    def _update_image(self, delta_time):
+        self.facing_direction = self.facing_direction.rotate(
+            -self._turn_amount * delta_time
+        )
+
+        # rotate image
+        direction_angle = -math.degrees(math.atan2(self.facing_direction.y, 
+                                                  self.facing_direction.x))
+        self.image = pygame.transform.rotate(self._original, direction_angle)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect(center=self.rect.center)
+        
+        if self._invisible:
+            self.image.fill(self.bg_color)
 
 
 class DeadPlayer(pygame.sprite.Sprite):

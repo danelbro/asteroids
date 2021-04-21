@@ -236,7 +236,9 @@ class GameState():
                         player.hyperspace(len(asteroids))
                     if (event.key == pygame.K_SPACE
                         and player_has_control):
-                        shot = player.fire(current_time, bullet_lifespan)
+                        shot = player.gun.fire(current_time, bullet_lifespan,
+                                               player.rect, 
+                                               player.facing_direction)
                         if shot is not None:
                             shots.add(shot)
                 elif event.type == pygame.KEYUP:
