@@ -163,8 +163,8 @@ class GameState():
         player_thrust = 16000
         player_mass = 32
         player_turn_speed = 500
-        player_fire_rate = 50  # higher numbers mean slower rate
-        player_shot_power = 700
+        player_fire_rate = 75  # higher numbers mean slower rate
+        player_shot_power = 600
         player_animation_speed = 24
         player_folder_name = 'player'
         player_remains_alive = True
@@ -178,8 +178,8 @@ class GameState():
         player_bullet_lifespan = 1.0
         
         # enemy variables
-        enemy_min_speed = 200
-        enemy_max_speed = 300
+        enemy_min_speed = 150
+        enemy_max_speed = 200
         enemy_min_angle = 0.3
         min_enemy_distance = 150        
         enemy_shot_power = 500
@@ -235,9 +235,9 @@ class GameState():
             current_time = pygame.time.get_ticks()
             player_has_control = (player.alive
                                   and not player.in_hyperspace)
-            # player_is_vulnerable = (player_has_control 
-            #                         and not player.respawning)
-            player_is_vulnerable = False
+            player_is_vulnerable = (player_has_control 
+                                    and not player.respawning)
+            
             score_at_frame_start = self.score
             
             # handle input
