@@ -29,7 +29,7 @@ def main():
                                           bg_color, clock, fps, 
                                           font_color, font_file, 
                                           button_color)
-
+ 
     while not done:
         done = game_state_obj.state_controller()
 

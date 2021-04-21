@@ -6,45 +6,18 @@ import math
 import utility
 
 
-class Gun():
-    def __init__(self, fire_rate, shot_power):
-        self._fire_rate = fire_rate
-        self._shot_power = shot_power
-        self._last_shot_time = 0
-    
-    def fire(self, current_time, lifespan, shooter_rect, 
-             shot_direction):
-        """Creates a Shot if allowed by the gun's fire rate. 
-
-        Args:
-            current_time (int): 
-            lifespan (float): 
-
-        Returns:
-            None: not enough time has passed since the last shot
-            Shot: a shot is fired
-        """
-        if current_time < self._last_shot_time + self._fire_rate:
-            return None
-        elif current_time >= self._last_shot_time + self._fire_rate:
-            self.last_shot_time = current_time
-            spawn_point = shooter_rect.center + (shot_direction
-                                              * (shooter_rect.height / 2))
-            return Shot(shot_direction, spawn_point, 
-                        self._shot_power, lifespan)
-
-
 class Player(pygame.sprite.Sprite):
     """A class to represent a controllable spaceship. 
-    
+
     The player is a spaceship with a gun and a hyperspace drive. 
     Subclass of pygame.sprite.Sprite.
     """
-    def __init__(self, player_pos, player_dir, thrust_power, 
-                 mass, turn_speed, fluid_density, fire_rate, 
-                 shot_power, thrust_animation_speed, folder_name, 
+
+    def __init__(self, player_pos, player_dir, thrust_power,
+                 mass, turn_speed, fluid_density, fire_rate,
+                 shot_power, thrust_animation_speed, folder_name,
                  remains_alive, hyperspace_length, bg_color, lives,
-                 flash_speed, respawn_length):
+                 flash_speed, respawn_length, bullet_lifespan):
         """Constructs a Player object.
 
         Args:
@@ -72,7 +45,7 @@ class Player(pygame.sprite.Sprite):
         for i in range(self._number_of_images):
             image_name = folder_name + '-' + str(i) + '.png'
             self._images.append(utility.load_image(image_name, folder,
-                                                   colorkey=(255,255,255)))
+                                                   colorkey=(255, 255, 255)))
         self.image = self._images[0]
         self._image_counter = 0
         self._thrust_animation_speed = thrust_animation_speed
@@ -83,7 +56,7 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(
             center=pygame.math.Vector2(player_pos)
         )
-        
+
         self.lives = lives
         self._flash_speed = flash_speed
         self._thrust_power = thrust_power
@@ -99,14 +72,14 @@ class Player(pygame.sprite.Sprite):
         self._fluid_density = fluid_density
         self._acceleration_magnitude = 0
         self._turn_amount = 0
-        self.gun = Gun(1000 / fire_rate, shot_power)
-        
+        self.gun = Gun(fire_rate, shot_power, bullet_lifespan, 'player')
+
         self.remains_alive = remains_alive
         self._hyperspace_length = hyperspace_length
         self._hyperspace_duration = 0
         self.in_hyperspace = False
         self.bg_color = bg_color
- 
+
         # facing_direction is where thrust is applied
         # velocity_direction determines how drag will be applied
         self._initial_dir = player_dir
@@ -114,7 +87,7 @@ class Player(pygame.sprite.Sprite):
         self.velocity = pygame.math.Vector2(0, 0)
         self.velocity_direction = pygame.math.Vector2(0, 0)
 
-    def update(self, delta_time, *args):
+    def update(self, delta_time, *args, **kwargs):
         """Called every frame to move the player.
 
         Args:
@@ -124,38 +97,38 @@ class Player(pygame.sprite.Sprite):
         if not self._thrusting:
             self._image_counter = 0
         else:
-            self._image_counter += self._thrust_animation_speed
+            self._image_counter += self._thrust_animation_speed * delta_time
             if self._image_counter >= self._number_of_images:
                 self._image_counter = 0
         self._original = self._images[int(self._image_counter)]
-        
+
         # hyperspace animation
         if self.in_hyperspace:
             self._hyperspace_duration += delta_time
             if self._hyperspace_duration >= self._hyperspace_length:
                 self.in_hyperspace = False
-                
-        # flash the player image if they're respawning or 
+
+        # flash the player image if they're respawning or
         # there's a level transition
         if not self.respawning:
             self._flash_counter = 0
         elif self.respawning:
-            self._flash_counter += self._flash_speed
+            self._flash_counter += self._flash_speed * delta_time
             if self._flash_counter >= 1:
                 self._flash_counter = 0
-                
+
             self._respawn_duration += delta_time
             if self._respawn_duration >= self._respawn_length:
                 self._flash_counter = 0
                 self.respawning = False
-                
-        if (self._flash_counter == 0 
-            and not self.in_hyperspace):
+
+        if (self._flash_counter == 0
+                and not self.in_hyperspace):
             self._invisible = False
         else:
             self._invisible = True
-        
-        self._update_image(delta_time)       
+
+        self._update_image(delta_time)
         self._calc_velocity(delta_time)
         change_position = self.velocity * delta_time
         self.rect = _check_collide(
@@ -165,8 +138,8 @@ class Player(pygame.sprite.Sprite):
         # reset
         self._acceleration_magnitude = 0
         self._turn_amount = 0
-        
-    def respawn(self, respawn_length, speed, 
+
+    def respawn(self, respawn_length, speed,
                 new_pos, reset=True):
         self.alive = True
         self.respawning = True
@@ -175,13 +148,13 @@ class Player(pygame.sprite.Sprite):
         self._respawn_length = respawn_length
         if reset:
             self._reset(new_pos)
-    
+
     def engine_on(self):
         """Causes thrust to be applied on this frame
         """
         self._acceleration_magnitude = self._thrust_power
         self._thrusting = True
-        
+
     def engine_off(self):
         """Cancels thrusting animation
         """
@@ -198,7 +171,7 @@ class Player(pygame.sprite.Sprite):
 
     def hyperspace(self, number_of_asteroids):
         """Moves the player to a random location. 
-        
+
         Sometimes kills the player; this is more likely if there are 
         fewer asteroids on screen.
 
@@ -211,7 +184,7 @@ class Player(pygame.sprite.Sprite):
         self.velocity.update(0, 0)
         self._hyperspace_duration = 0
         self._thrusting = 0
-        
+
         # move player
         self.rect.center = (random.randint(0, self._area.width),
                             random.randint(0, self._area.height))
@@ -221,11 +194,11 @@ class Player(pygame.sprite.Sprite):
         min_percentage = 0.75
         asteroid_max = 60
         asteroid_min = 1
-        
-        asteroids_normalized = utility.normalize(number_of_asteroids, 
+
+        asteroids_normalized = utility.normalize(number_of_asteroids,
                                                  asteroid_min,
                                                  asteroid_max)
-        
+
         if random.random() > utility.lerp(min_percentage, max_percentage,
                                           asteroids_normalized):
             self.remains_alive = False
@@ -233,15 +206,15 @@ class Player(pygame.sprite.Sprite):
             self.remains_alive = True
 
     def _reset(self, pos):
-        self.velocity.update(0,0)
+        self.velocity.update(0, 0)
         self.rect.center = pos
         self.facing_direction = pygame.math.Vector2(self._initial_dir)
         self._thrusting = False
-            
+
     def _calc_velocity(self, delta_time):
         # calculate drag
-        drag = (0.5 
-                * self._fluid_density 
+        drag = (0.5
+                * self._fluid_density
                 * self.velocity.magnitude_squared())
 
         # calculate velocity direction
@@ -251,8 +224,8 @@ class Player(pygame.sprite.Sprite):
             self.velocity_direction = self.velocity.normalize()
 
         # calculate total forces and acceleration
-        total_forces = ((self._acceleration_magnitude 
-                         * self.facing_direction) 
+        total_forces = ((self._acceleration_magnitude
+                         * self.facing_direction)
                         + (drag * -self.velocity_direction))
         acceleration = total_forces / self.mass
 
@@ -265,19 +238,20 @@ class Player(pygame.sprite.Sprite):
         )
 
         # rotate image
-        direction_angle = -math.degrees(math.atan2(self.facing_direction.y, 
-                                                  self.facing_direction.x))
+        direction_angle = -math.degrees(math.atan2(self.facing_direction.y,
+                                                   self.facing_direction.x))
         self.image = pygame.transform.rotate(self._original, direction_angle)
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect(center=self.rect.center)
-        
+
         if self._invisible:
             self.image.fill(self.bg_color)
 
 
 class DeadPlayer(pygame.sprite.Sprite):
     """Class to represent the Player after they have been killed."""
-    def __init__(self, folder_name, animation_speed, pos, direction, 
+
+    def __init__(self, folder_name, animation_speed, pos, direction,
                  velocity, velocity_direction, fluid_density, mass):
         super().__init__()
         self._images = []
@@ -286,7 +260,7 @@ class DeadPlayer(pygame.sprite.Sprite):
         for i in range(self._number_of_images):
             image_name = folder_name + '-' + str(i) + '.png'
             self._images.append(utility.load_image(image_name, folder,
-                                                   colorkey=(255,255,255)))
+                                                   colorkey=(255, 255, 255)))
         self.image = self._images[0]
         self._original = self.image
         self._direction = direction
@@ -299,9 +273,9 @@ class DeadPlayer(pygame.sprite.Sprite):
         self._fluid_density = fluid_density
         self.mass = mass
         self._area = pygame.display.get_surface().get_rect()
-        
-    def update(self, delta_time, *args):
-        self._image_counter += self._animation_speed
+
+    def update(self, delta_time, *args, **kwargs):
+        self._image_counter += self._animation_speed * delta_time
         if self._image_counter >= self._number_of_images:
             self.kill()
         else:
@@ -309,38 +283,140 @@ class DeadPlayer(pygame.sprite.Sprite):
             self._rotate_image()
             self._calc_velocity(delta_time)
             change_position = self.velocity * delta_time
-            self.rect = _check_collide(self.rect.move(change_position.x, 
-                                                     change_position.y),
-                                      self._area)
-            
+            self.rect = _check_collide(self.rect.move(change_position.x,
+                                                      change_position.y),
+                                       self._area)
+
     def _rotate_image(self):
-        direction_angle = -math.degrees(math.atan2(self._direction.y, 
+        direction_angle = -math.degrees(math.atan2(self._direction.y,
                                                    self._direction.x))
         self.image = pygame.transform.rotate(self._original, direction_angle)
         self.rect = self.image.get_rect(center=self.rect.center)
-    
+
     def _calc_velocity(self, delta_time):
-        drag = (0.5 
-                * self._fluid_density 
+        drag = (0.5
+                * self._fluid_density
                 * self.velocity.magnitude_squared())
-        
+
         if self.velocity.magnitude() != 0:
             self.velocity_direction = self.velocity.normalize()
         else:
             self.velocity_direction = pygame.math.Vector2(0, 0)
-            
+
         total_forces = drag * - self.velocity_direction
         acceleration = total_forces / self.mass
 
         self.velocity += acceleration * delta_time
+
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, spawn_position, initial_dir, speed,
+                 fire_rate, shot_power, bullet_lifespan, state):
+        super().__init__()
+        folder_name = os.path.join('data', 'sprites', 'enemy')
+        self.image = utility.load_image(f'enemy-{state}.png', folder_name, -1)
+        self.state = state
+        self.rect = self.image.get_rect(center=spawn_position)
+        self.mask = pygame.mask.from_surface(self.image)
+        self.facing_direction = pygame.math.Vector2(initial_dir).normalize()
+        self.speed = speed / state
+        self.movement_direction = self.facing_direction.normalize()
+        self.velocity = self.speed * self.movement_direction
+        self.gun = Gun(fire_rate, shot_power, bullet_lifespan, 'enemy')
+        self.area = pygame.display.get_surface().get_rect()
+        self.primed = True
+        self.time_since_last_dir_change = 0
+        self.next_direction_change = random.randint(1,3)
+
+    def update(self, delta_time, score, *args, **kwargs):
+        player_rect = kwargs.get('player_rect')
+        if self.state == 1:
+            if player_rect is not None:
+                self.facing_direction.update(
+                    player_rect.x - self.rect.x,
+                    player_rect.y - self.rect.y
+                )
+                self.facing_direction = self.facing_direction.normalize()
+                
+                max_inaccuracy_angle = 30
+                t = utility.normalize(score, 0, 40000)
+                rotate_amount = utility.lerp(max_inaccuracy_angle, 0, t)
+                negatizer = random.choice([-1, 1])
+                self.facing_direction.rotate_ip(rotate_amount * negatizer)
+            else:
+                self.primed = False
+        elif self.state == 2:
+            self.facing_direction.rotate_ip(random.randint(0, 359))
+        
+        self.time_since_last_dir_change += delta_time
+        if self.time_since_last_dir_change > self.next_direction_change:
+            self.movement_direction.rotate_ip(utility.random_angle(30, 65))
+            self.movement_direction = self.movement_direction.normalize()
+            self.time_since_last_dir_change = 0
+            self.next_direction_change = random.randint(1,3)
+        
+        velocity_vector = self.speed * self.movement_direction * delta_time
     
+        self.rect = _check_collide(self.rect.move(velocity_vector), self.area)
+
+    @staticmethod
+    def spawn(min_speed, max_speed, min_angle, player_pos, min_player_distance,
+              width, height, fire_rate, shot_power, bullet_lifespan, state):
+        speed = random.randint(min_speed, max_speed)
+        direction = utility.random_angle_vector(min_angle)
+        position = utility.random_position(min_player_distance, width,
+                                           height, player_pos)
+        
+        switcher = random.randint(0,3)
+        if switcher == 0:
+            position.x = 0
+        elif switcher == 1:
+            position.x = width
+        elif switcher == 2:
+            position.y = 0
+        elif switcher == 3:
+            position.y = height
+        
+        return Enemy(position, direction, speed, fire_rate, shot_power, 
+                     bullet_lifespan, state)
+
+
+class Gun():
+    def __init__(self, fire_rate, shot_power, lifespan, id_):
+        self._fire_rate = fire_rate
+        self._shot_power = shot_power
+        self._last_shot_time = 0
+        self._bullet_lifespan = lifespan
+        self.id = id_
+
+    def fire(self, current_time, shooter_rect, shot_direction):
+        """Creates a Shot if allowed by the gun's fire rate. 
+
+        Args:
+            current_time (int): 
+            lifespan (float): 
+
+        Returns:
+            None: not enough time has passed since the last shot
+            Shot: a shot is fired
+        """
+        if current_time < self._last_shot_time + self._fire_rate:
+            return None
+        elif current_time >= self._last_shot_time + self._fire_rate:
+            self._last_shot_time = current_time
+            spawn_point = shooter_rect.center + (shot_direction
+                                                 * (shooter_rect.height / 2))
+            return Shot(shot_direction, spawn_point,
+                        self._shot_power, self._bullet_lifespan, self.id)
+
 
 class Shot(pygame.sprite.Sprite):
     """Class to represent a shot fired by the Player. 
-    
+
     Subclass of pygame.sprite.Sprite.
     """
-    def __init__(self, direction, initial_position, power, lifespan):
+
+    def __init__(self, direction, initial_position, power, lifespan, id_):
         """Constructs a Shot object.
 
         Args:
@@ -357,17 +433,16 @@ class Shot(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(
             center=pygame.math.Vector2(initial_position)
         )
+        self._direction = direction
+        self._rotate_image()
         self.mask = pygame.mask.from_surface(self.image)
         self._area = pygame.display.get_surface().get_rect()
-        
-        self._direction = direction
         self.velocity = power * self._direction
-        self._rotate_image()
-
         self._lifetime = 0.0
         self._lifespan = lifespan
+        self.id = id_
 
-    def update(self, delta_time, *args):
+    def update(self, delta_time, *args, **kwargs):
         """Called every frame to move the shot
 
         Args:
@@ -377,25 +452,26 @@ class Shot(pygame.sprite.Sprite):
         if self._lifetime >= self._lifespan:
             self.kill()
         change_position = self.velocity * delta_time
-        self.rect = _check_collide(self.rect.move(change_position.x, 
-                                                 change_position.y), 
-                                  self._area)
+        self.rect = _check_collide(self.rect.move(change_position.x,
+                                                  change_position.y),
+                                   self._area)
 
     def _rotate_image(self):
         """Ensures the shot faces the direction it travels
         """
-        rotation = -math.degrees(math.atan2(self._direction.y, 
+        rotation = -math.degrees(math.atan2(self._direction.y,
                                             self._direction.x))
         self.image = pygame.transform.rotate(self.image, rotation)
         self.rect = self.image.get_rect(center=self.rect.center)
-        
+
 
 class Asteroid(pygame.sprite.Sprite):
     """Class to represent an Asteroid. 
-    
+
     Subclass of pygame.sprite.Sprite.
     """
-    def __init__(self, velocity, direction, image_number, 
+
+    def __init__(self, velocity, direction, image_number,
                  spin_amount, pos=None, state=3):
         super().__init__()
         self.state = state
@@ -409,14 +485,14 @@ class Asteroid(pygame.sprite.Sprite):
         self._original = self.image
         self._area = pygame.display.get_surface().get_rect()
         self.mask = pygame.mask.from_surface(self.image)
-        
+
         self._spin = 0
         self._spin_amount = spin_amount
-            
+
         self.velocity = velocity
         self._direction = direction.normalize()
 
-    def update(self, delta_time, *args):
+    def update(self, delta_time, *args, **kwargs):
         """Called every frame to move the asteroid.
 
         Args:
@@ -425,7 +501,7 @@ class Asteroid(pygame.sprite.Sprite):
         velocity_vector = self.velocity * self._direction * delta_time
         self.rect = _check_collide(self.rect.move(velocity_vector), self._area)
         self._rotate_image(delta_time)
-        
+
     def _rotate_image(self, delta_time):
         """Rotates the image by a set amount every frame.
 
@@ -443,7 +519,7 @@ class Asteroid(pygame.sprite.Sprite):
 
     def hit(self, velocity_scale, number_to_spawn):
         """Returns new asteroids if required. 
-        
+
         Spawns two new asteroids if the asteroid that got hit is large
         enough. If not, returns None.
 
@@ -456,17 +532,17 @@ class Asteroid(pygame.sprite.Sprite):
             large enough
             None: this is already the smallest asteroid size, so no 
             child asteroids are created.
-        """        
+        """
         if self.state > 1:
             new_list = []
             rotation = 0
             spawn_cycles = 0
             state = self.state - 1
             new_velocity = self.velocity * velocity_scale
-            
+
             if number_to_spawn == 2:
                 rotation = 180 / number_to_spawn
-                spawn_cycles = int(number_to_spawn / 2)            
+                spawn_cycles = int(number_to_spawn / 2)
                 even = True
             elif number_to_spawn % 2 == 0:
                 rotation = 180 / (number_to_spawn - 1)
@@ -476,54 +552,54 @@ class Asteroid(pygame.sprite.Sprite):
                 rotation = 180 / number_to_spawn
                 spawn_cycles = int((number_to_spawn - 1) / 2)
                 even = False
-                
+
             for i in range(spawn_cycles):
-                first_image_number = random.randint(0,2)
+                first_image_number = random.randint(0, 2)
                 second_image_number = first_image_number
                 while second_image_number == first_image_number:
-                    second_image_number = random.randint(0,2)
-                
+                    second_image_number = random.randint(0, 2)
+
                 reflect = rotation * (i + 1)
-                
+
                 new_asteroid_1 = Asteroid(
-                    new_velocity, 
-                    self._direction.rotate(reflect), first_image_number, 
+                    new_velocity,
+                    self._direction.rotate(reflect), first_image_number,
                     self._spin_amount, self.rect.center, state
                 )
-                               
+
                 new_asteroid_2 = Asteroid(
                     new_velocity,
-                    self._direction.rotate(-reflect), second_image_number, 
+                    self._direction.rotate(-reflect), second_image_number,
                     self._spin_amount, self.rect.center, state
                 )
-                    
+
                 new_list.extend([new_asteroid_1, new_asteroid_2])
-                
+
             if not even:
                 if len(new_list) > 0:
                     old_image_number = new_list[-1].image_number
                     image_number = old_image_number
                     while image_number == old_image_number:
-                        image_number = random.randint(0,2)
+                        image_number = random.randint(0, 2)
 
-                else: # only 1 to spawn
+                else:  # only 1 to spawn
                     image_number = random.randint(0, 2)
-                
+
                 odd_asteroid = Asteroid(new_velocity,
                                         self._direction.rotate(180),
                                         image_number, self._spin_amount,
                                         self.rect.center, state)
-                
+
                 new_list.append(odd_asteroid)
-            
+
             return new_list
-        
-        else: 
+
+        else:
             return
 
     @staticmethod
-    def spawn(number_of_asteroids, min_speed, max_speed, min_angle, 
-              player_pos, min_player_distance, width, height):
+    def spawn(number_of_asteroids, min_speed, max_speed, min_angle,
+              player_rect, min_player_distance, width, height):
         """Randomly generates new asteroids.
 
         Args:
@@ -544,61 +620,52 @@ class Asteroid(pygame.sprite.Sprite):
         """
         asteroid_list = []
         while number_of_asteroids > 0:
-            # get a random acceptable velocity for this asteroid
             speed = random.randint(min_speed, max_speed)
+            direction = utility.random_angle_vector(min_angle)
+            image_number = random.randint(0, 2)
+            position = utility.random_position(min_player_distance, width, 
+                                               height, player_rect)
 
-            # get a random acceptable direction for this asteroid
-            direction = pygame.math.Vector2(0, 0)
-            while (math.fabs(direction.x) < min_angle or 
-                   math.fabs(direction.y) < min_angle):
-                direction.x = random.uniform(-1.0, 1.0)
-                direction.y = random.uniform(-1.0, 1.0)
-            
             spin_amount = 0
             while math.fabs(spin_amount) < 100:
                 spin_amount = random.randint(-200, 200)
-            
-            # get a random acceptable position for this asteroid
-            distance = 0
-            while distance < min_player_distance:
-                position_x = random.randint(0, width)
-                position_y = random.randint(0, height)
-                x_distance = math.fabs(position_x - player_pos.centerx)
-                y_distance = math.fabs(position_y - player_pos.centery)
-                distance = math.sqrt((x_distance ** 2) + (y_distance ** 2))
-            position = pygame.math.Vector2(position_x, position_y)
-            
-            image_number = random.randint(0,2)
-            
-            asteroid_list.append(Asteroid(speed, direction, image_number, 
+
+            asteroid_list.append(Asteroid(speed, direction, image_number,
                                           spin_amount, position))
             number_of_asteroids -= 1
 
         return asteroid_list
 
 
+class Particles(pygame.sprite.Sprite):
+    def __init__(self):
+        pass
+
+
+# on screen text
 class Title():
     def __init__(self, text, font_file, size, font_color, pos):
-        font = pygame.ftfont.Font(font_file, size)        
+        font = pygame.ftfont.Font(font_file, size)
         self.text = font.render(text, True, font_color)
         self.text_rect = self.text.get_rect()
         self.text_rect.center = pos
         self.height = self.text_rect.height
-    
-    def update(self, *args):
+
+    def update(self, *args, **kwargs):
         pass
-    
+
     def clear(self, screen, background):
         return [screen.blit(background, self.text_rect, self.text_rect)]
-    
+
     def draw(self, screen):
         return [screen.blit(self.text, self.text_rect)]
-    
+
 
 class Scoreboard():
     """Class that represents a scoreboard to be drawn. Shows level, 
     score and remaining lives.
     """
+
     def __init__(self, font_file, size, font_color,
                  bg_color, pos, level, score, lives):
         """Constructs a Scoreboard object.
@@ -624,15 +691,15 @@ class Scoreboard():
             self.hide()
         else:
             self.show()
-    
+
         self.level_text = self._font.render(f'Level {self.level}',
-                                           True, self._current_font_color)
+                                            True, self._current_font_color)
         self.level_text_rect = self.level_text.get_rect(topleft=self.pos)
-        
+
         self.score_text = self._font.render(f'Score: {str(self.score)}',
-                                           True, self._current_font_color)
-        self.score_pos = (self.pos[0], 
-                          (self.pos[1] 
+                                            True, self._current_font_color)
+        self.score_pos = (self.pos[0],
+                          (self.pos[1]
                            + self.level_text_rect.height))
         self.score_text_rect = self.score_text.get_rect(
             topleft=self.score_pos
@@ -643,28 +710,28 @@ class Scoreboard():
                           (self.score_pos[1]
                            + self.score_text_rect.height))
         self.lives_text_rect = self.lives_text.get_rect(
-            topleft = self.lives_pos
+            topleft=self.lives_pos
         )
-        
+
     def show(self):
         self._current_font_color = self._font_color
         self.level_text = self._font.render(
             f'Level {self.level}', True, self._current_font_color
         )
         self.score_text = self._font.render(
-            f'Score: {str(utility.thousands(self.score))}', 
+            f'Score: {str(utility.thousands(self.score))}',
             True, self._current_font_color
         )
         self.lives_text = self._font.render(
             f'Lives: {str(self.lives)}', True, self._current_font_color
         )
-        
+
     def hide(self):
         self._current_font_color = self._bg_color
-                            
-    def update(self, delta_time, level, score, lives):
+
+    def update(self, delta_time, score, level, lives, *args, **kwargs):
         """Updates level or score.
-        
+
         Called every frame. Updates level or score if they are 
         different to those stored in the scoreboard.
 
@@ -685,17 +752,17 @@ class Scoreboard():
         if score != self.score:
             self.score = score
             self.score_text = self._font.render(
-                f'Score: {str(utility.thousands(self.score))}', 
+                f'Score: {str(utility.thousands(self.score))}',
                 True, self._current_font_color
             )
             self.score_text_rect = self.score_text.get_rect(
                 topleft=self.score_pos
             )
-            
+
         if lives != self.lives:
             self.lives = lives
             self.lives_text = self._font.render(
-                f'Lives: {str(self.lives)}', True, 
+                f'Lives: {str(self.lives)}', True,
                 self._current_font_color
             )
             self.lives_text_rect = self.lives_text.get_rect(
@@ -704,7 +771,7 @@ class Scoreboard():
 
     def clear(self, screen, background):
         """Erases the scoreboard so it can be redrawn.
-        
+
         Called every frame.
 
         Args:
@@ -716,9 +783,9 @@ class Scoreboard():
             list[pygame.Rect]: a list of 'dirty rects'
         """
         rects = []
-        rects.append(screen.blit(background, 
+        rects.append(screen.blit(background,
                                  self.level_text_rect, self.level_text_rect))
-        rects.append(screen.blit(background, 
+        rects.append(screen.blit(background,
                                  self.score_text_rect, self.score_text_rect))
         rects.append(screen.blit(background,
                                  self.lives_text_rect, self.lives_text_rect))
@@ -742,10 +809,11 @@ class Scoreboard():
 
 class Highscores():
     """A class to represent a list of highscores 
-    
+
     Drawn to the screen after the game is over. 
     """
-    def __init__(self, new_score, font_file, font_size, font_color, 
+
+    def __init__(self, new_score, font_file, font_size, font_color,
                  x_pos, y_pos, padding, highlight_color):
         highscores = []
         new_highscore_position = -1
@@ -759,8 +827,8 @@ class Highscores():
                         highscores.append(int(scores_match.group(2)))
 
             if len(highscores) >= 5:
-                # highscore list is already at max length. we need to 
-                # check whether the new_score is higher than any 
+                # highscore list is already at max length. we need to
+                # check whether the new_score is higher than any
                 # already in the list and remove the lowest
                 for i, score in enumerate(sorted(highscores, reverse=True)):
                     if new_score > 0 and new_score > score:
@@ -770,14 +838,14 @@ class Highscores():
                         new_highscore = True
                         break
                 else:
-                    # the new_score isn't higher than any already in 
+                    # the new_score isn't higher than any already in
                     # the list
                     new_highscore = False
 
             elif new_score > 0:
-                # the higscores list is able to accept a new score, 
-                # but we don't want scores of 0 to appear. First check 
-                # whether the new_score is higher than any currently 
+                # the higscores list is able to accept a new score,
+                # but we don't want scores of 0 to appear. First check
+                # whether the new_score is higher than any currently
                 # in the list
                 new_highscore = True
                 for i, score in enumerate(sorted(highscores, reverse=True)):
@@ -786,15 +854,15 @@ class Highscores():
                         new_highscore_position = i
                         break
                 else:
-                    # the new_score isn't higher than any current 
-                    # scores, but since there's space in the list 
+                    # the new_score isn't higher than any current
+                    # scores, but since there's space in the list
                     # we add it
                     highscores.append(new_score)
                     new_highscore_position = len(highscores) - 1
             else:
                 # the new_score is 0
                 new_highscore = False
-                        
+
         except FileNotFoundError:
             with open('highscores.txt', 'x') as f:
                 new_highscore_position = 0
@@ -802,7 +870,7 @@ class Highscores():
                 new_highscore = True
 
         highscores.sort(reverse=True)
-        
+
         font = pygame.ftfont.Font(font_file, font_size)
         font_color
         self._scores_list = []
@@ -813,22 +881,22 @@ class Highscores():
             title_text = 'NEW HIGHSCORE'
         else:
             title_text = 'HIGHSCORES'
-            
+
         new_highscore_parts = {}
         new_highscore_text = font.render(title_text, True, font_color)
         new_highscore_text_rect = new_highscore_text.get_rect()
         new_highscore_parts['text'] = new_highscore_text
         new_highscore_parts['text_rect'] = new_highscore_text_rect
-        
+
         text_height = new_highscore_text_rect.height
         self._scores_list.append(new_highscore_parts)
-        
+
         for i, score in enumerate(highscores):
             score_parts = {}
             score_string = f'{str(i + 1)}. {str(utility.thousands(score))}'
-            
+
             if i == new_highscore_position:
-                score_text = font.render(score_string, True, font_color, 
+                score_text = font.render(score_string, True, font_color,
                                          highlight_color)
                 score_text.convert_alpha()
             else:
@@ -839,46 +907,48 @@ class Highscores():
             score_parts['text'] = score_text
             score_parts['text_rect'] = score_text_rect
             self._scores_list.append(score_parts)
-            
+
         # position rects
         for i in range(len(self._scores_list)):
             text_position = (self.x_pos,
-                             (self.y_pos 
-                              + (text_height * i) 
+                             (self.y_pos
+                              + (text_height * i)
                               + (padding * i)))
             self._scores_list[i]['text_rect'].midtop = text_position
-        
-        self.height = (self._scores_list[-1]['text_rect'].bottom 
+
+        self.height = (self._scores_list[-1]['text_rect'].bottom
                        - self._scores_list[0]['text_rect'].top)
-                       
+
         with open('highscores.txt', 'w') as f:
             for i, score in enumerate(highscores):
                 f.write(f'{str(i + 1)}. {str(score)}\n')
-                    
-    def update(self, *args):
+
+    def update(self, *args, **kwargs):
         pass
-    
+
     def clear(self, screen, background):
         rects = []
         for score_text in self._scores_list:
-            rects.append(screen.blit(background, 
-                                     score_text['text_rect'], 
-                                     score_text['text_rect']))
-        return rects
-    
-    def draw(self, screen):
-        rects = []
-        for score_text in self._scores_list:
-            rects.append(screen.blit(score_text['text'], 
+            rects.append(screen.blit(background,
+                                     score_text['text_rect'],
                                      score_text['text_rect']))
         return rects
 
+    def draw(self, screen):
+        rects = []
+        for score_text in self._scores_list:
+            rects.append(screen.blit(score_text['text'],
+                                     score_text['text_rect']))
+        return rects
+
+
 class Buttons():
     """A class to represent a panel of buttons for a menu. 
-    
+
     Dynamically positions buttons based on number of labels requested.
     """
-    def __init__(self, font_file, size, font_color, button_color, 
+
+    def __init__(self, font_file, size, font_color, button_color,
                  x_pos, y_pos, padding, *labels):
         """Constructs a Buttons object.
 
@@ -897,11 +967,11 @@ class Buttons():
         self.y_pos = y_pos
         self._padding = padding
         self.buttons = []
-        
+
         widest = 0
         highest = 0
 
-        # render labels and get the maximum width and height. 
+        # render labels and get the maximum width and height.
         for i, label in enumerate(labels):
             button_parts = {}
             button_text = font.render(label, True, font_color)
@@ -914,50 +984,50 @@ class Buttons():
             button_parts['button_text'] = button_text
             button_parts['button_text_rect'] = button_text_rect
             self.buttons.append(button_parts)
-        
+
         # render buttons
         self._button_width = widest + (self._padding * 2)
         self._button_height = highest + (self._padding * 2)
         for button_group in self.buttons:
-            button_rect = pygame.Rect((0,0), (self._button_width, 
-                                              self._button_height))
-            button = pygame.Surface(button_rect.size, 
+            button_rect = pygame.Rect((0, 0), (self._button_width,
+                                               self._button_height))
+            button = pygame.Surface(button_rect.size,
                                     flags=pygame.SRCALPHA).convert_alpha()
             button.fill(button_color)
             button_group['button'] = button
             button_group['button_rect'] = button_rect
-        
+
         self.reposition()
-            
-        self.height = (self.buttons[-1]['button_rect'].bottom 
+
+        self.height = (self.buttons[-1]['button_rect'].bottom
                        - self.buttons[0]['button_rect'].top)
-    
+
     def reposition(self):
         for i in range(len(self.buttons)):
-            button_position = (self.x_pos, 
-                               self.y_pos 
-                               + (self._button_height * i) 
+            button_position = (self.x_pos,
+                               self.y_pos
+                               + (self._button_height * i)
                                + (self._padding * i))
-            text_position = (self.x_pos, 
-                             self.y_pos 
-                             + (self._button_height * i) 
-                             + self._padding 
+            text_position = (self.x_pos,
+                             self.y_pos
+                             + (self._button_height * i)
+                             + self._padding
                              + (self._padding * i))
-                
+
             self.buttons[i]['button_rect'].midtop = button_position
             self.buttons[i]['button_text_rect'].midtop = text_position
-    
+
     def clear(self, screen, background):
         rects = []
         for button_group in self.buttons:
             rects.append(screen.blit(background, button_group['button_rect'],
-                        button_group['button_rect']))
-            rects.append(screen.blit(background, 
+                                     button_group['button_rect']))
+            rects.append(screen.blit(background,
                                      button_group['button_text_rect'],
                                      button_group['button_text_rect']))
         return rects
-    
-    def update(self, *args):
+
+    def update(self, *args, **kwargs):
         pass
 
     def draw(self, screen):
@@ -968,11 +1038,12 @@ class Buttons():
         """
         rects = []
         for button_group in self.buttons:
-            rects.append(screen.blit(button_group['button'], 
+            rects.append(screen.blit(button_group['button'],
                                      button_group['button_rect']))
-            rects.append(screen.blit(button_group['button_text'], 
+            rects.append(screen.blit(button_group['button_text'],
                                      button_group['button_text_rect']))
         return rects
+
 
 def _check_collide(newpos, area):
     """Implements wraparound behaviour.
@@ -985,14 +1056,14 @@ def _check_collide(newpos, area):
     """
     if newpos.bottom < 0:
         newpos.top = area.height
-                            
+
     elif newpos.top > area.height:
         newpos.bottom = 0
-            
+
     elif newpos.right < 0:
         newpos.left = area.width
-            
+
     elif newpos.left > area.width:
         newpos.right = 0
-    
+
     return newpos

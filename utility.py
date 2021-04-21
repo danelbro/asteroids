@@ -1,4 +1,6 @@
 import os
+import math
+import random
 import pygame
 
 def load_image(name, folder_name, colorkey=None):
@@ -55,10 +57,10 @@ def load_sound(name):
     return sound
 
 
-def draw_all(sprites, screen, background, *args):
+def draw_all(sprites, screen, background, *args, **kwargs):
     for sprite_group in sprites:
             sprite_group.clear(screen, background)
-            sprite_group.update(*args)
+            sprite_group.update(*args, **kwargs)
     return [dirty_rect for sprite_group in sprites
                        for dirty_rect in sprite_group.draw(screen)]
     
@@ -66,7 +68,31 @@ def thousands(n):
     return "{:,}".format(n)
 
 def normalize(x, x_min, x_max):
-            return x - x_min / x_max - x_min
+            return (x - x_min) / (x_max - x_min)
         
 def lerp(min, max, t):
             return (1 - t) * min + t * max
+        
+def random_angle_vector(min_angle):
+    direction = pygame.math.Vector2(0, 0)
+    while (math.fabs(direction.x) < min_angle and 
+           math.fabs(direction.y) < min_angle):
+        direction.x = random.uniform(-1.0, 1.0)
+        direction.y = random.uniform(-1.0, 1.0)
+    return direction
+
+def random_angle(min_angle, max_angle):
+    angle = 0
+    while math.fabs(angle) < min_angle:
+        angle = random.randint(-max_angle, max_angle)
+    return angle
+
+def random_position(min_distance, width, height, avoid_rect):
+    distance = 0
+    while distance < min_distance:
+        position_x = random.randint(0, width)
+        position_y = random.randint(0, height)
+        x_distance = math.fabs(position_x - avoid_rect.centerx)
+        y_distance = math.fabs(position_y - avoid_rect.centery)
+        distance = math.hypot(x_distance, y_distance)
+    return pygame.math.Vector2(position_x, position_y)

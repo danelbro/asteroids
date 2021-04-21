@@ -151,7 +151,6 @@ class GameState():
         asteroids_spawned = False
         player_alive = True
         player_hit_time = 0
-        player_respawn_time = 1000 # in miliseconds
         base_score = 150
         self.score = 0
         self.level = 1
@@ -164,37 +163,52 @@ class GameState():
         player_thrust = 16000
         player_mass = 32
         player_turn_speed = 500
-        player_fire_rate = 500 # higher numbers mean slower rate
+        player_fire_rate = 50  # higher numbers mean slower rate
         player_shot_power = 700
-        player_animation_speed = 0.5
+        player_animation_speed = 24
         player_folder_name = 'player'
         player_remains_alive = True
-        player_hyperspace_length = 0.5 # in seconds
-        player_respawn_flash_speed = 0.25
-        level_transition_flash_speed = 0.1
+        player_hyperspace_length = 0.5  # in seconds
+        player_respawn_flash_speed = 24
+        level_transition_flash_speed = 16
+        player_respawn_time = 1500 # in miliseconds
         dead_player_folder_name = 'dead_player'
-        dead_player_animation_speed = 0.4
+        dead_player_animation_speed = 24
         level_friction = 0.1
-        bullet_lifespan = 1.0
+        player_bullet_lifespan = 1.0
+        
+        # enemy variables
+        enemy_min_speed = 200
+        enemy_max_speed = 300
+        enemy_min_angle = 0.3
+        min_enemy_distance = 150        
+        enemy_shot_power = 500
+        enemy_fire_rate = 1500
+        enemy_bullet_lifespan = 1.0
+        enemy_spawned = False
+        time_between_enemy_spawns = 7000  # in miliseconds
         
         # asteroid variables
         level_asteroids_offset = 3
         min_asteroid_speed = 100
         max_asteroid_speed = 150
         min_asteroid_dir_angle = 0.3
-        min_asteroid_dist = 200 # minimum distance from the player, center-to-center
+        min_asteroid_dist = 200     # minimum distance from the player, center-to-center
         new_asteroid_velocity_scale = 1.2
         min_broken_asteroids = 2
-        max_broken_asteroids = 3
+        max_broken_asteroids = 2
                     
         # initialise scoreboard, sprite groups, player and asteroids
         scoreboard = assets.Scoreboard(self.font_file, 24, self.font_color, self.bg_color,
                                        scoreboard_pos, self.level, self.score, self.lives)
 
         players = pygame.sprite.RenderUpdates()
+        enemies = pygame.sprite.RenderUpdates()
         asteroids = pygame.sprite.RenderUpdates()
         shots = pygame.sprite.RenderUpdates()
-        self.allsprites.extend([players, asteroids, shots, scoreboard])
+        enemy_shots = pygame.sprite.RenderUpdates()
+        self.allsprites.extend([players, enemies, asteroids, 
+                                shots, enemy_shots, scoreboard])
 
         player = assets.Player(player_pos, player_dir, player_thrust, 
                         player_mass, player_turn_speed, level_friction, 
@@ -202,7 +216,7 @@ class GameState():
                         player_animation_speed, player_folder_name, 
                         player_remains_alive, player_hyperspace_length,
                         self.bg_color, self.lives, player_respawn_flash_speed,
-                        player_respawn_time / 1000)
+                        player_respawn_time / 1000, player_bullet_lifespan)
         players.add(player)
 
         # initial blit/update
@@ -210,6 +224,7 @@ class GameState():
         self.screen.blit(self.background, (0, 0))
         pygame.display.update()
         level_start_time = pygame.time.get_ticks()
+        previous_enemy_spawn = level_start_time
 
         # start game loop
         while True:
@@ -220,8 +235,10 @@ class GameState():
             current_time = pygame.time.get_ticks()
             player_has_control = (player.alive
                                   and not player.in_hyperspace)
-            player_is_vulnerable = (player_has_control 
-                                    and not player.respawning)
+            # player_is_vulnerable = (player_has_control 
+            #                         and not player.respawning)
+            player_is_vulnerable = False
+            score_at_frame_start = self.score
             
             # handle input
             for event in pygame.event.get():
@@ -236,8 +253,7 @@ class GameState():
                         player.hyperspace(len(asteroids))
                     if (event.key == pygame.K_SPACE
                         and player_has_control):
-                        shot = player.gun.fire(current_time, bullet_lifespan,
-                                               player.rect, 
+                        shot = player.gun.fire(current_time, player.rect, 
                                                player.facing_direction)
                         if shot is not None:
                             shots.add(shot)
@@ -255,13 +271,28 @@ class GameState():
                 if keys[pygame.K_RIGHT]:
                     player.turn(-1)
 
-            # check if the player got hit by an asteroid - lose a life if so
+            # check if the player got hit - lose a life if so
             if player_is_vulnerable:
-                colliding_asteroids = pygame.sprite.spritecollide(
-                    player, asteroids, False, pygame.sprite.collide_mask
+                colliding_asteroids = pygame.sprite.groupcollide(
+                    players, asteroids, False, False, 
+                    pygame.sprite.collide_mask
                 )
+                
+                colliding_enemy_shots = pygame.sprite.groupcollide(
+                    players, enemy_shots, False, True,
+                    pygame.sprite.collide_mask
+                )
+
+                colliding_spaceships = pygame.sprite.groupcollide(
+                    players, enemies, False, False,
+                    pygame.sprite.collide_mask
+                )
+                
+                colliding_things = {**colliding_asteroids,
+                                    ** colliding_enemy_shots,
+                                    **colliding_spaceships}
             
-                if len(colliding_asteroids) > 0 or not player.remains_alive:
+                if len(colliding_things) > 0 or not player.remains_alive:
                     dead_player = assets.DeadPlayer(
                         dead_player_folder_name, dead_player_animation_speed,
                         player.rect.center, player.facing_direction,
@@ -285,15 +316,57 @@ class GameState():
                                player_respawn_flash_speed,
                                self.screen.get_rect().center)
                 players.add(player)
+                
+            # check whether enemies got shot
+            enemies_shot_by_player = pygame.sprite.groupcollide(
+                enemies, shots, True, True,
+                pygame.sprite.collide_mask
+            )
+            
+            for enemy, shot_list in enemies_shot_by_player.items():
+                self.score += int(base_score * enemy.state)
+                enemy.kill()
+                enemy_spawned = False
+                previous_enemy_spawn = current_time - 2000
+                
+            # spawn an enemy if it's time
+            if (not enemy_spawned 
+                and current_time - previous_enemy_spawn 
+                >= time_between_enemy_spawns):
+                enemies.add(assets.Enemy.spawn(enemy_min_speed, 
+                                               enemy_max_speed,
+                                               enemy_min_angle,
+                                               player.rect,
+                                               min_enemy_distance,
+                                               self.screen.get_rect().width,
+                                               self.screen.get_rect().height,
+                                               enemy_fire_rate,
+                                               enemy_shot_power,
+                                               enemy_bullet_lifespan, 1))
+                previous_enemy_spawn = current_time
+                enemy_spawned = True
+                    
             
             # check whether asteroids got shot
-            shot_asteroids = pygame.sprite.groupcollide(
+            asteroids_shot_by_player = pygame.sprite.groupcollide(
                 asteroids, shots, True, True,
                 pygame.sprite.collide_mask
             )
-              
+            
+            asteroids_shot_by_enemies = pygame.sprite.groupcollide(
+                asteroids, enemy_shots, True, True,
+                pygame.sprite.collide_mask
+            )
+            
+            shot_asteroids = {**asteroids_shot_by_player,
+                              **asteroids_shot_by_enemies}
+            
             for asteroid, shot_list in shot_asteroids.items():
-                self.score += int(base_score / asteroid.state)
+                for shot in shot_list:
+                    if shot.id == 'player':
+                        self.score += int(base_score / asteroid.state)
+                        break
+                
                 number_to_spawn = random.randint(min_broken_asteroids,
                                                  max_broken_asteroids)
                 new_asteroids = asteroid.hit(
@@ -303,13 +376,14 @@ class GameState():
                     asteroids.add(new_asteroids)
             
             # check if all asteroids were destroyed
-            if len(asteroids) == 0:
+            if len(asteroids) == 0 and len(enemies) == 0:
                 # enter level transition if so
                 if asteroids_spawned:
                     self.level += 1
                     shots.clear(self.screen, self.background)
                     shots.empty()
                     level_start_time = current_time + level_transition_time
+                    previous_enemy_spawn = level_start_time
                     player.respawn(level_transition_time / 1000,
                                    level_transition_flash_speed,
                                    self.screen.get_rect().center,
@@ -331,10 +405,19 @@ class GameState():
                     asteroids.add(ast_list)
                     asteroids_spawned = True
             
+            # have the enemy fire at the player
+            for enemy in enemies.sprites():
+                if enemy.primed:
+                    enemy_shot = enemy.gun.fire(current_time, enemy.rect, 
+                                                enemy.facing_direction)
+                    if enemy_shot is not None:
+                        enemy_shots.add(enemy_shot)
+
             # render
             dirty_rects = utility.draw_all(self.allsprites, self.screen, 
                                            self.background, delta_time, 
-                                           self.level, self.score, self.lives)
+                                           self.score, self.level, self.lives,
+                                           player_rect=player.rect)
 
             pygame.display.update(dirty_rects)
 
