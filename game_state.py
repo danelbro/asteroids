@@ -162,9 +162,9 @@ class GameState():
         player_dir = (0, -1)
         player_thrust = 16000
         player_mass = 32
-        player_turn_speed = 500
-        player_fire_rate = 75  # higher numbers mean slower rate
-        player_shot_power = 600
+        player_turn_speed = 400
+        player_fire_rate = 6  # shots per second
+        player_shot_power = 550
         player_animation_speed = 24
         player_folder_name = 'player'
         player_remains_alive = True
@@ -174,19 +174,24 @@ class GameState():
         player_respawn_time = 1500 # in miliseconds
         dead_player_folder_name = 'dead_player'
         dead_player_animation_speed = 24
+        player_dead_time = (dead_player_animation_speed 
+                            / (dead_player_animation_speed / 1000))
         level_friction = 0.1
         player_bullet_lifespan = 1.0
-        
+                
         # enemy variables
-        enemy_min_speed = 150
-        enemy_max_speed = 200
+        enemy_min_speed = 200
+        enemy_max_speed = 300
         enemy_min_angle = 0.3
         min_enemy_distance = 150        
         enemy_shot_power = 500
-        enemy_fire_rate = 1500
+        enemy_fire_rate = 0.5  # shots per second
         enemy_bullet_lifespan = 1.0
         enemy_spawned = False
         time_between_enemy_spawns = 7000  # in miliseconds
+        enemy_overlap_offset = 4000
+        enemy_max_innacuracy_angle = 20
+        enemy_max_difficulty_at_score = 30000
         
         # asteroid variables
         level_asteroids_offset = 3
@@ -201,6 +206,7 @@ class GameState():
         # initialise scoreboard, sprite groups, player and asteroids
         scoreboard = assets.Scoreboard(self.font_file, 24, self.font_color, self.bg_color,
                                        scoreboard_pos, self.level, self.score, self.lives)
+        scoreboard.hide()
 
         players = pygame.sprite.RenderUpdates()
         enemies = pygame.sprite.RenderUpdates()
@@ -212,7 +218,7 @@ class GameState():
 
         player = assets.Player(player_pos, player_dir, player_thrust, 
                         player_mass, player_turn_speed, level_friction, 
-                        player_fire_rate, player_shot_power, 
+                        1000 / player_fire_rate, player_shot_power, 
                         player_animation_speed, player_folder_name, 
                         player_remains_alive, player_hyperspace_length,
                         self.bg_color, self.lives, player_respawn_flash_speed,
@@ -223,7 +229,7 @@ class GameState():
         self.background.fill(self.bg_color)
         self.screen.blit(self.background, (0, 0))
         pygame.display.update()
-        level_start_time = pygame.time.get_ticks()
+        level_start_time = pygame.time.get_ticks() + level_transition_time
         previous_enemy_spawn = level_start_time
 
         # start game loop
@@ -310,7 +316,7 @@ class GameState():
                     
             # respawn the player if necessary
             if (not player.alive 
-                and current_time - player_hit_time >= player_respawn_time):
+                and current_time - player_hit_time >= player_dead_time):
                 players.remove(dead_player)
                 player.respawn(player_respawn_time / 1000, 
                                player_respawn_flash_speed,
@@ -327,7 +333,7 @@ class GameState():
                 self.score += int(base_score * enemy.state)
                 enemy.kill()
                 enemy_spawned = False
-                previous_enemy_spawn = current_time - 2000
+                previous_enemy_spawn = current_time - enemy_overlap_offset
                 
             # spawn an enemy if it's time
             if (not enemy_spawned 
@@ -340,9 +346,11 @@ class GameState():
                                                min_enemy_distance,
                                                self.screen.get_rect().width,
                                                self.screen.get_rect().height,
-                                               enemy_fire_rate,
+                                               1000 / enemy_fire_rate,
                                                enemy_shot_power,
-                                               enemy_bullet_lifespan, 1))
+                                               enemy_bullet_lifespan, 1,
+                                               enemy_max_innacuracy_angle,
+                                               enemy_max_difficulty_at_score))
                 previous_enemy_spawn = current_time
                 enemy_spawned = True
                     
@@ -481,10 +489,6 @@ class GameState():
             current_time = pygame.time.get_ticks()
             delta_time = self.clock.get_time() / 1000
             
-            dirty_rects = utility.draw_all(self.allsprites, self.screen,
-                                           self.background, delta_time, 
-                                           self.level, self.score, self.lives)
-            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return None
@@ -509,7 +513,11 @@ class GameState():
                         elif button['label'] == 'Quit':
                             if button['button_rect'].collidepoint(mouse_pos):
                                 return None
-            
+                    
+            dirty_rects = utility.draw_all(self.allsprites, self.screen,
+                                           self.background, delta_time, 
+                                           self.score, self.level, self.lives)
+
             if (not menu_showing and
                 current_time - start_time >= time_to_start):
                     menu_showing = True
@@ -518,5 +526,5 @@ class GameState():
                                                         self.background))
                     self.allsprites.extend([heading, score_heading, 
                                             highscores, buttons_panel])
-
+            
             pygame.display.update(dirty_rects)

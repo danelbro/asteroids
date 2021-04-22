@@ -311,7 +311,8 @@ class DeadPlayer(pygame.sprite.Sprite):
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, spawn_position, initial_dir, speed,
-                 fire_rate, shot_power, bullet_lifespan, state):
+                 fire_rate, shot_power, bullet_lifespan, state,
+                 max_inaccuracy_angle, max_score):
         super().__init__()
         folder_name = os.path.join('data', 'sprites', 'enemy')
         self.image = utility.load_image(f'enemy-{state}.png', folder_name, -1)
@@ -322,11 +323,15 @@ class Enemy(pygame.sprite.Sprite):
         self.speed = speed / state
         self.movement_direction = self.facing_direction.normalize()
         self.velocity = self.speed * self.movement_direction
-        self.gun = Gun(fire_rate, shot_power, bullet_lifespan, 'enemy')
+        self.gun = Gun(fire_rate * state, shot_power, 
+                       bullet_lifespan, 'enemy')
         self.area = pygame.display.get_surface().get_rect()
         self.primed = True
         self.time_since_last_dir_change = 0
         self.next_direction_change = random.randint(1,3)
+        if self.state == 1:
+            self.max_inaccuracy_angle = max_inaccuracy_angle
+            self.max_score = max_score
 
     def update(self, delta_time, score, *args, **kwargs):
         player_rect = kwargs.get('player_rect')
@@ -338,9 +343,8 @@ class Enemy(pygame.sprite.Sprite):
                 )
                 self.facing_direction = self.facing_direction.normalize()
                 
-                max_inaccuracy_angle = 30
-                t = utility.normalize(score, 0, 40000)
-                rotate_amount = utility.lerp(max_inaccuracy_angle, 0, t)
+                t = utility.normalize(score, 0, self.max_score)
+                rotate_amount = utility.lerp(self.max_inaccuracy_angle, 0, t)
                 negatizer = random.choice([-1, 1])
                 self.facing_direction.rotate_ip(rotate_amount * negatizer)
             else:
@@ -353,7 +357,7 @@ class Enemy(pygame.sprite.Sprite):
             self.movement_direction.rotate_ip(utility.random_angle(30, 65))
             self.movement_direction = self.movement_direction.normalize()
             self.time_since_last_dir_change = 0
-            self.next_direction_change = random.randint(1,3)
+            self.next_direction_change = random.uniform(0.5, 1.5)
         
         velocity_vector = self.speed * self.movement_direction * delta_time
     
@@ -361,7 +365,8 @@ class Enemy(pygame.sprite.Sprite):
 
     @staticmethod
     def spawn(min_speed, max_speed, min_angle, player_pos, min_player_distance,
-              width, height, fire_rate, shot_power, bullet_lifespan, state):
+              width, height, fire_rate, shot_power, bullet_lifespan, state, 
+              innacuracy_angle, max_difficulty_at_score):
         speed = random.randint(min_speed, max_speed)
         direction = utility.random_angle_vector(min_angle)
         position = utility.random_position(min_player_distance, width,
@@ -378,7 +383,8 @@ class Enemy(pygame.sprite.Sprite):
             position.y = height
         
         return Enemy(position, direction, speed, fire_rate, shot_power, 
-                     bullet_lifespan, state)
+                     bullet_lifespan, state, innacuracy_angle, 
+                     max_difficulty_at_score)
 
 
 class Gun():
@@ -686,6 +692,7 @@ class Scoreboard():
         self.level = level
         self.score = score
         self.lives = lives
+        self._changed_state = False
 
         if self.level == 0:
             self.hide()
@@ -715,19 +722,11 @@ class Scoreboard():
 
     def show(self):
         self._current_font_color = self._font_color
-        self.level_text = self._font.render(
-            f'Level {self.level}', True, self._current_font_color
-        )
-        self.score_text = self._font.render(
-            f'Score: {str(utility.thousands(self.score))}',
-            True, self._current_font_color
-        )
-        self.lives_text = self._font.render(
-            f'Lives: {str(self.lives)}', True, self._current_font_color
-        )
+        self._changed_state = True
 
     def hide(self):
         self._current_font_color = self._bg_color
+        self._changed_state = True
 
     def update(self, delta_time, score, level, lives, *args, **kwargs):
         """Updates level or score.
@@ -739,7 +738,7 @@ class Scoreboard():
             level (int): the new level to be checked
             score (int): the new score to be checked
         """
-        if level != self.level:
+        if level != self.level or self._changed_state:
             self.level = level
             self.level_text = self._font.render(
                 f'Level {self.level}',
@@ -749,7 +748,7 @@ class Scoreboard():
                 topleft=self.pos
             )
 
-        if score != self.score:
+        if score != self.score or self._changed_state:
             self.score = score
             self.score_text = self._font.render(
                 f'Score: {str(utility.thousands(self.score))}',
@@ -759,7 +758,7 @@ class Scoreboard():
                 topleft=self.score_pos
             )
 
-        if lives != self.lives:
+        if lives != self.lives or self._changed_state:
             self.lives = lives
             self.lives_text = self._font.render(
                 f'Lives: {str(self.lives)}', True,
