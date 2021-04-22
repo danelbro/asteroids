@@ -8,8 +8,9 @@ This is a clone of the original 'Asteroids' arcade game, written in Python using
 # To-Do List
 - ~~Add peristent highscores list~~
 - Add sounds
-- ~~Add explosion animations for player~~ and asteroids
-- Add enemy spaceships
+- ~~Add explosion animations for player~~
+- Add particle effects
+- ~~Add enemy spaceships~~ (Partly)
 - ~~Fix hyperspace behaviour~~
 - Add options screen
 - ~~Add lives~~
