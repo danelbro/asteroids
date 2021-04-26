@@ -5,11 +5,13 @@ import utility
 import random
 import math
 
+
 class GameState():
     """A class to control the game state, containing functions for
     different game states.
     """
-    def __init__(self, screen, background, bg_color, 
+
+    def __init__(self, screen, background, bg_color,
                  clock, fps, font_color, font_file, button_color):
         """Construct a GameState object.
 
@@ -26,8 +28,8 @@ class GameState():
             font_file (str): a path to a .ttf font file
             button_color (tuple): colour for buttons
         """
-        self.state_dict = {'intro': self.intro, 
-                           'main': self.main, 
+        self.state_dict = {'intro': self.intro,
+                           'main': self.main,
                            'options': self.options,
                            'end': self.end}
         self.state = 'intro'
@@ -57,7 +59,7 @@ class GameState():
 
     def intro(self):
         """Main menu/intro screen. Presents a title and menu.
-        
+
         The menu consists of buttons which start a new game, go to the
         options menu, and quit the game.
 
@@ -67,25 +69,25 @@ class GameState():
         """
         title_y_pos = self.screen.get_rect().centery
         padding = 5
-        
+
         title = assets.Title('Asteroids', self.font_file, 52, self.font_color,
                              (self.screen.get_rect().centerx, title_y_pos))
 
         buttons_panel = assets.Buttons(self.font_file, 28, self.font_color,
-                                self.button_color,
-                                self.screen.get_rect().centerx, 0, 
-                                padding, 'New Game', 'Options', 'Quit')
-        
-        buttons_y_pos = (self.screen.get_height() 
-                         - (padding * 4) 
+                                       self.button_color,
+                                       self.screen.get_rect().centerx, 0,
+                                       padding, 'New Game', 'Options', 'Quit')
+
+        buttons_y_pos = (self.screen.get_height()
+                         - (padding * 4)
                          - buttons_panel.height)
-        
+
         buttons_panel.y_pos = buttons_y_pos
         buttons_panel.reposition()
-        
+
         self.allsprites.extend([title, buttons_panel])
         self.background.fill(self.bg_color)
-        self.screen.blit(self.background, (0,0))
+        self.screen.blit(self.background, (0, 0))
         pygame.display.update()
 
         while True:
@@ -115,13 +117,13 @@ class GameState():
                             if button['button_rect'].collidepoint(mouse_pos):
                                 return None
 
-            dirty_rects = utility.draw_all(self.allsprites, self.screen, 
+            dirty_rects = utility.draw_all(self.allsprites, self.screen,
                                            self.background)
             pygame.display.update(dirty_rects)
 
     def options(self):
         """An options menu.
-        
+
         Returns:
             str: a new game state
             None: the player quit the game
@@ -130,7 +132,7 @@ class GameState():
 
     def main(self):
         """The main game loop. 
-        
+
         The player controls a spaceship and shoots at asteroids. If the
         player is hit by an asteroid, they lose a life. Once they are 
         out of lives, the game ends. The player can also use a 
@@ -156,7 +158,7 @@ class GameState():
         self.level = 1
         self.lives = 3
         scoreboard_pos = (15, 10)
-        
+
         # player variables
         player_pos = self.screen.get_rect().center
         player_dir = (0, -1)
@@ -171,19 +173,19 @@ class GameState():
         player_hyperspace_length = 0.5  # in seconds
         player_respawn_flash_speed = 24
         level_transition_flash_speed = 16
-        player_respawn_time = 1500 # in miliseconds
+        player_respawn_time = 1500  # in miliseconds
         dead_player_folder_name = 'dead_player'
         dead_player_animation_speed = 24
-        player_dead_time = (dead_player_animation_speed 
+        player_dead_time = (dead_player_animation_speed
                             / (dead_player_animation_speed / 1000))
         level_friction = 0.1
         player_bullet_lifespan = 1.0
-                
+
         # enemy variables
         enemy_min_speed = 200
         enemy_max_speed = 300
         enemy_min_angle = 0.3
-        min_enemy_distance = 150        
+        min_enemy_distance = 150
         enemy_shot_power = 500
         enemy_fire_rate = 0.5  # shots per second
         enemy_bullet_lifespan = 1.0
@@ -192,7 +194,7 @@ class GameState():
         enemy_overlap_offset = 4000
         enemy_max_innacuracy_angle = 20
         enemy_max_difficulty_at_score = 30000
-        
+
         # asteroid variables
         level_asteroids_offset = 3
         min_asteroid_speed = 100
@@ -202,7 +204,7 @@ class GameState():
         new_asteroid_velocity_scale = 1.2
         min_broken_asteroids = 2
         max_broken_asteroids = 2
-                    
+
         # initialise scoreboard, sprite groups, player and asteroids
         scoreboard = assets.Scoreboard(self.font_file, 24, self.font_color, self.bg_color,
                                        scoreboard_pos, self.level, self.score, self.lives)
@@ -213,16 +215,16 @@ class GameState():
         asteroids = pygame.sprite.RenderUpdates()
         shots = pygame.sprite.RenderUpdates()
         enemy_shots = pygame.sprite.RenderUpdates()
-        self.allsprites.extend([players, enemies, asteroids, 
+        self.allsprites.extend([players, enemies, asteroids,
                                 shots, enemy_shots, scoreboard])
 
-        player = assets.Player(player_pos, player_dir, player_thrust, 
-                        player_mass, player_turn_speed, level_friction, 
-                        1000 / player_fire_rate, player_shot_power, 
-                        player_animation_speed, player_folder_name, 
-                        player_remains_alive, player_hyperspace_length,
-                        self.bg_color, self.lives, player_respawn_flash_speed,
-                        player_respawn_time / 1000, player_bullet_lifespan)
+        player = assets.Player(player_pos, player_dir, player_thrust,
+                               player_mass, player_turn_speed, level_friction,
+                               1000 / player_fire_rate, player_shot_power,
+                               player_animation_speed, player_folder_name,
+                               player_remains_alive, player_hyperspace_length,
+                               self.bg_color, self.lives, player_respawn_flash_speed,
+                               player_respawn_time / 1000, player_bullet_lifespan)
         players.add(player)
 
         # initial blit/update
@@ -236,16 +238,16 @@ class GameState():
         while True:
             dirty_rects = []
             colliding_asteroids = []
-            self.clock.tick(self.fps)            
-            delta_time = self.clock.get_time() / 1000 # converted to seconds
+            self.clock.tick(self.fps)
+            delta_time = self.clock.get_time() / 1000  # converted to seconds
             current_time = pygame.time.get_ticks()
             player_has_control = (player.alive
                                   and not player.in_hyperspace)
-            player_is_vulnerable = (player_has_control 
+            player_is_vulnerable = (player_has_control
                                     and not player.respawning)
-            
+
             score_at_frame_start = self.score
-            
+
             # handle input
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -254,18 +256,18 @@ class GameState():
                     if event.key == pygame.K_ESCAPE:
                         self.allsprites.clear()
                         return 'intro'
-                    if (event.key == pygame.K_LSHIFT 
-                        and player_has_control):
+                    if (event.key == pygame.K_LSHIFT
+                            and player_has_control):
                         player.hyperspace(len(asteroids))
                     if (event.key == pygame.K_SPACE
-                        and player_has_control):
-                        shot = player.gun.fire(current_time, player.rect, 
+                            and player_has_control):
+                        shot = player.gun.fire(current_time, player.rect,
                                                player.facing_direction)
                         if shot is not None:
                             shots.add(shot)
                 elif event.type == pygame.KEYUP:
                     if (event.key == pygame.K_UP
-                        and player_has_control):
+                            and player_has_control):
                         player.engine_off()
 
             keys = pygame.key.get_pressed()
@@ -280,10 +282,10 @@ class GameState():
             # check if the player got hit - lose a life if so
             if player_is_vulnerable:
                 colliding_asteroids = pygame.sprite.groupcollide(
-                    players, asteroids, False, False, 
+                    players, asteroids, False, False,
                     pygame.sprite.collide_mask
                 )
-                
+
                 colliding_enemy_shots = pygame.sprite.groupcollide(
                     players, enemy_shots, False, True,
                     pygame.sprite.collide_mask
@@ -293,11 +295,11 @@ class GameState():
                     players, enemies, False, False,
                     pygame.sprite.collide_mask
                 )
-                
+
                 colliding_things = {**colliding_asteroids,
-                                    ** colliding_enemy_shots,
+                                    **colliding_enemy_shots,
                                     **colliding_spaceships}
-            
+
                 if len(colliding_things) > 0 or not player.remains_alive:
                     dead_player = assets.DeadPlayer(
                         dead_player_folder_name, dead_player_animation_speed,
@@ -313,33 +315,42 @@ class GameState():
                     players.add(dead_player)
                     if player.lives < 1:
                         return 'end'
-                    
+
             # respawn the player if necessary
-            if (not player.alive 
-                and current_time - player_hit_time >= player_dead_time):
+            if (not player.alive
+                    and current_time - player_hit_time >= player_dead_time):
                 players.remove(dead_player)
-                player.respawn(player_respawn_time / 1000, 
+                player.respawn(player_respawn_time / 1000,
                                player_respawn_flash_speed,
                                self.screen.get_rect().center)
                 players.add(player)
-                
+
             # check whether enemies got shot
             enemies_shot_by_player = pygame.sprite.groupcollide(
                 enemies, shots, True, True,
                 pygame.sprite.collide_mask
             )
-            
+
             for enemy, shot_list in enemies_shot_by_player.items():
                 self.score += int(base_score * enemy.state)
                 enemy.kill()
                 enemy_spawned = False
                 previous_enemy_spawn = current_time - enemy_overlap_offset
-                
+
             # spawn an enemy if it's time
-            if (not enemy_spawned 
-                and current_time - previous_enemy_spawn 
-                >= time_between_enemy_spawns):
-                enemies.add(assets.Enemy.spawn(enemy_min_speed, 
+            if (not enemy_spawned
+                and current_time - previous_enemy_spawn
+                    >= time_between_enemy_spawns):
+                new_enemy_state_gen = random.random()
+                new_enemy_state_weight = utility.normalize(
+                    self.score, 0, 40000
+                )
+                if new_enemy_state_weight >= new_enemy_state_gen:
+                    new_enemy_state = 1
+                else:
+                    new_enemy_state = 2
+
+                enemies.add(assets.Enemy.spawn(enemy_min_speed,
                                                enemy_max_speed,
                                                enemy_min_angle,
                                                player.rect,
@@ -348,33 +359,33 @@ class GameState():
                                                self.screen.get_rect().height,
                                                1000 / enemy_fire_rate,
                                                enemy_shot_power,
-                                               enemy_bullet_lifespan, 1,
+                                               enemy_bullet_lifespan,
+                                               new_enemy_state,
                                                enemy_max_innacuracy_angle,
                                                enemy_max_difficulty_at_score))
                 previous_enemy_spawn = current_time
                 enemy_spawned = True
-                    
-            
+
             # check whether asteroids got shot
             asteroids_shot_by_player = pygame.sprite.groupcollide(
                 asteroids, shots, True, True,
                 pygame.sprite.collide_mask
             )
-            
+
             asteroids_shot_by_enemies = pygame.sprite.groupcollide(
                 asteroids, enemy_shots, True, True,
                 pygame.sprite.collide_mask
             )
-            
+
             shot_asteroids = {**asteroids_shot_by_player,
                               **asteroids_shot_by_enemies}
-            
+
             for asteroid, shot_list in shot_asteroids.items():
                 for shot in shot_list:
                     if shot.id == 'player':
                         self.score += int(base_score / asteroid.state)
                         break
-                
+
                 number_to_spawn = random.randint(min_broken_asteroids,
                                                  max_broken_asteroids)
                 new_asteroids = asteroid.hit(
@@ -382,7 +393,7 @@ class GameState():
                 )
                 if new_asteroids is not None:
                     asteroids.add(new_asteroids)
-            
+
             # check if all asteroids were destroyed
             if len(asteroids) == 0 and len(enemies) == 0:
                 # enter level transition if so
@@ -397,33 +408,33 @@ class GameState():
                                    self.screen.get_rect().center,
                                    reset=False)
                     asteroids_spawned = False
-                
+
                 # start a new level if necessary
                 if current_time - level_start_time >= 0:
                     scoreboard.show()
-                    ast_list = assets.Asteroid.spawn((self.level 
-                                                    + level_asteroids_offset),
-                                                    min_asteroid_speed,
-                                                    max_asteroid_speed,
-                                                    min_asteroid_dir_angle,
-                                                    player.rect,
-                                                    min_asteroid_dist,
-                                                    self.screen.get_width(),
-                                                    self.screen.get_height())
+                    ast_list = assets.Asteroid.spawn((self.level
+                                                      + level_asteroids_offset),
+                                                     min_asteroid_speed,
+                                                     max_asteroid_speed,
+                                                     min_asteroid_dir_angle,
+                                                     player.rect,
+                                                     min_asteroid_dist,
+                                                     self.screen.get_width(),
+                                                     self.screen.get_height())
                     asteroids.add(ast_list)
                     asteroids_spawned = True
-            
+
             # have the enemy fire at the player
             for enemy in enemies.sprites():
                 if enemy.primed:
-                    enemy_shot = enemy.gun.fire(current_time, enemy.rect, 
+                    enemy_shot = enemy.gun.fire(current_time, enemy.rect,
                                                 enemy.facing_direction)
                     if enemy_shot is not None:
                         enemy_shots.add(enemy_shot)
 
             # render
-            dirty_rects = utility.draw_all(self.allsprites, self.screen, 
-                                           self.background, delta_time, 
+            dirty_rects = utility.draw_all(self.allsprites, self.screen,
+                                           self.background, delta_time,
                                            self.score, self.level, self.lives,
                                            player_rect=player.rect)
 
@@ -431,7 +442,7 @@ class GameState():
 
     def end(self):
         """The game over screen. 
-        
+
         Presents a message, score, list of top 5 highscores, and a 
         menu to the player. If the score is higher than one of the 
         presented highscores, ask the player to enter their name to 
@@ -444,42 +455,42 @@ class GameState():
         """
         text_pos = 50
         padding = 5
-        
+
         heading_y_pos = text_pos
-        heading = assets.Title('Game Over', self.font_file, 42, 
-                               self.font_color, 
-                               (self.screen.get_rect().centerx, 
+        heading = assets.Title('Game Over', self.font_file, 42,
+                               self.font_color,
+                               (self.screen.get_rect().centerx,
                                 heading_y_pos))
 
         score_heading_y_pos = heading_y_pos + heading.height + padding
-        
-        score_heading = assets.Title(('Score: ' 
+
+        score_heading = assets.Title(('Score: '
                                       + str(utility.thousands(self.score))),
-                                      self.font_file, 36, self.font_color, 
-                                      (self.screen.get_rect().centerx,
-                                       score_heading_y_pos))
-        
-        highscores_y_pos = (score_heading_y_pos 
-                            + score_heading.height 
+                                     self.font_file, 36, self.font_color,
+                                     (self.screen.get_rect().centerx,
+                                      score_heading_y_pos))
+
+        highscores_y_pos = (score_heading_y_pos
+                            + score_heading.height
                             + padding)
-        
+
         highscores = assets.Highscores(self.score, self.font_file, 36,
-                                self.font_color,
-                                self.screen.get_rect().centerx, 
-                                highscores_y_pos, padding, self.button_color)
+                                       self.font_color,
+                                       self.screen.get_rect().centerx,
+                                       highscores_y_pos, padding, self.button_color)
 
         buttons_panel = assets.Buttons(self.font_file, 28, self.font_color,
-                                self.button_color, 
-                                self.screen.get_rect().centerx, 0,
-                                padding, 'New Game', 'Main Menu', 'Quit')
-        
-        buttons_y_pos = (self.screen.get_height() 
-                         - (padding * 4) 
+                                       self.button_color,
+                                       self.screen.get_rect().centerx, 0,
+                                       padding, 'New Game', 'Main Menu', 'Quit')
+
+        buttons_y_pos = (self.screen.get_height()
+                         - (padding * 4)
                          - buttons_panel.height)
-        
+
         buttons_panel.y_pos = buttons_y_pos
         buttons_panel.reposition()
-        
+
         time_to_start = 1000
         menu_showing = False
         start_time = pygame.time.get_ticks()
@@ -488,7 +499,7 @@ class GameState():
             self.clock.tick(self.fps)
             current_time = pygame.time.get_ticks()
             delta_time = self.clock.get_time() / 1000
-            
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     return None
@@ -513,18 +524,18 @@ class GameState():
                         elif button['label'] == 'Quit':
                             if button['button_rect'].collidepoint(mouse_pos):
                                 return None
-                    
+
             dirty_rects = utility.draw_all(self.allsprites, self.screen,
-                                           self.background, delta_time, 
+                                           self.background, delta_time,
                                            self.score, self.level, self.lives)
 
             if (not menu_showing and
-                current_time - start_time >= time_to_start):
-                    menu_showing = True
-                    scoreboard = self.allsprites.pop()
-                    dirty_rects.extend(scoreboard.clear(self.screen, 
-                                                        self.background))
-                    self.allsprites.extend([heading, score_heading, 
-                                            highscores, buttons_panel])
-            
+                    current_time - start_time >= time_to_start):
+                menu_showing = True
+                scoreboard = self.allsprites.pop()
+                dirty_rects.extend(scoreboard.clear(self.screen,
+                                                    self.background))
+                self.allsprites.extend([heading, score_heading,
+                                        highscores, buttons_panel])
+
             pygame.display.update(dirty_rects)
