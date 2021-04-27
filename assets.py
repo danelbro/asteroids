@@ -1,6 +1,6 @@
+import os
 import pygame
 import random
-import os
 import re
 import math
 import utility
@@ -651,7 +651,7 @@ class Particles(pygame.sprite.Sprite):
 # on screen text
 class Title():
     def __init__(self, text, font_file, size, font_color, pos):
-        font = pygame.ftfont.Font(font_file, size)
+        font = pygame.font.Font(font_file, size)
         self.text = font.render(text, True, font_color)
         self.text_rect = self.text.get_rect()
         self.text_rect.center = pos
@@ -684,7 +684,7 @@ class Scoreboard():
             level (int): starting level
             score (int): starting score
         """
-        self._font = pygame.ftfont.Font(font_file, size)
+        self._font = pygame.font.Font(font_file, size)
         self._font_color = font_color
         self._bg_color = bg_color
         self._current_font_color = self._font_color
@@ -870,7 +870,7 @@ class Highscores():
 
         highscores.sort(reverse=True)
 
-        font = pygame.ftfont.Font(font_file, font_size)
+        font = pygame.font.Font(font_file, font_size)
         font_color
         self._scores_list = []
         self.x_pos = x_pos
@@ -961,7 +961,7 @@ class Buttons():
             padding (int): padding between buttons and between button
             edge and text
         """
-        font = pygame.ftfont.Font(font_file, size)
+        font = pygame.font.Font(font_file, size)
         self.x_pos = x_pos
         self.y_pos = y_pos
         self._padding = padding

@@ -204,6 +204,7 @@ class GameState():
         new_asteroid_velocity_scale = 1.2
         min_broken_asteroids = 2
         max_broken_asteroids = 2
+        max_new_asteroids = 10
 
         # initialise scoreboard, sprite groups, player and asteroids
         scoreboard = assets.Scoreboard(self.font_file, 24, self.font_color, self.bg_color,
@@ -412,8 +413,10 @@ class GameState():
                 # start a new level if necessary
                 if current_time - level_start_time >= 0:
                     scoreboard.show()
-                    ast_list = assets.Asteroid.spawn((self.level
-                                                      + level_asteroids_offset),
+                    asteroid_number = min(
+                        max_new_asteroids, self.level + level_asteroids_offset
+                    )
+                    ast_list = assets.Asteroid.spawn(asteroid_number,
                                                      min_asteroid_speed,
                                                      max_asteroid_speed,
                                                      min_asteroid_dir_angle,
