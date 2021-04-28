@@ -30,8 +30,8 @@ def main():
                                           font_color, font_file, 
                                           button_color)
  
-    while not done:
-        done = game_state_obj.state_controller()
+    while still_running:
+        still_running = game_state_obj.main_loop()
 
     pygame.quit()
     sys.exit()

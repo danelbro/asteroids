@@ -13,21 +13,7 @@ class GameState():
 
     def __init__(self, screen, background, bg_color,
                  clock, fps, font_color, font_file, button_color):
-        """Construct a GameState object.
-
-        Args:
-            screen (pygame.Surface): the surface where the game takes 
-            place 
-            background (pygame.Surface): the background of the game, 
-            used for clearing the screen 
-            bg_color (tuple): default background colour, used for 
-            clearing the screen
-            clock (pygame.time.Clock): the game clock
-            fps (int): maximum framerate
-            font_color (tuple): colour for text
-            font_file (str): a path to a .ttf font file
-            button_color (tuple): colour for buttons
-        """
+        """Construct a GameState object."""
         self.state_dict = {'intro': self.intro,
                            'main': self.main,
                            'options': self.options,
@@ -45,53 +31,46 @@ class GameState():
         self.button_color = button_color
         self.allsprites = []
 
-    def state_controller(self):
-        """Runs the appropriate game state function
-
-        Returns:
-            bool: represents whether the game is finished.
-        """
-        self.state = self.state_dict[self.state]()
-        if self.state is None:
-            return True
-        else:
+    def main_loop(self):
+        self.clock.tick(self.fps)
+        self.current_state.get_input()
+        self.current_state.update()
+        self.current_state.render()
+        self.current_state = self.current_state.next_state()
+        
+        if self.current_state is None:
             return False
+        else:
+            return True
 
-    def intro(self):
-        """Main menu/intro screen. Presents a title and menu.
 
-        The menu consists of buttons which start a new game, go to the
-        options menu, and quit the game.
+class Intro():
+    def __init__(self):
+        self.title_y_pos = CALLER.screen.get_rect().centery
+        self.padding = 5
 
-        Returns:
-            str: a new game state
-            None: the player quit the game
-        """
-        title_y_pos = self.screen.get_rect().centery
-        padding = 5
+        CALLER.title = assets.Title('Asteroids', CALLER.font_file, 52, CALLER.font_color,
+                                  (CALLER.screen.get_rect().centerx, title_y_pos))
 
-        title = assets.Title('Asteroids', self.font_file, 52, self.font_color,
-                             (self.screen.get_rect().centerx, title_y_pos))
-
-        buttons_panel = assets.Buttons(self.font_file, 28, self.font_color,
-                                       self.button_color,
-                                       self.screen.get_rect().centerx, 0,
+        buttons_panel = assets.Buttons(CALLER.font_file, 28, CALLER.font_color,
+                                       CALLER.button_color,
+                                       CALLER.screen.get_rect().centerx, 0,
                                        padding, 'New Game', 'Options', 'Quit')
 
-        buttons_y_pos = (self.screen.get_height()
+        buttons_y_pos = (CALLER.screen.get_height()
                          - (padding * 4)
                          - buttons_panel.height)
 
         buttons_panel.y_pos = buttons_y_pos
         buttons_panel.reposition()
 
-        self.allsprites.extend([title, buttons_panel])
-        self.background.fill(self.bg_color)
-        self.screen.blit(self.background, (0, 0))
+        CALLER.allsprites.extend([title, buttons_panel])
+        CALLER.background.fill(CALLER.bg_color)
+        CALLER.screen.blit(CALLER.background, (0, 0))
         pygame.display.update()
 
         while True:
-            self.clock.tick(self.fps)
+            CALLER.clock.tick(CALLER.fps)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -100,25 +79,25 @@ class GameState():
                     if event.key == pygame.K_ESCAPE:
                         return None
                     if event.key == pygame.K_RETURN:
-                        self.allsprites.clear()
+                        CALLER.allsprites.clear()
                         return 'main'
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     mouse_pos = pygame.mouse.get_pos()
                     for button in buttons_panel.buttons:
                         if button['label'] == 'New Game':
                             if button['button_rect'].collidepoint(mouse_pos):
-                                self.allsprites.clear()
+                                CALLER.allsprites.clear()
                                 return 'main'
                         elif button['label'] == 'Options':
                             if button['button_rect'].collidepoint(mouse_pos):
-                                self.allsprites.clear()
+                                CALLER.allsprites.clear()
                                 return 'options'
                         elif button['label'] == 'Quit':
                             if button['button_rect'].collidepoint(mouse_pos):
                                 return None
 
-            dirty_rects = utility.draw_all(self.allsprites, self.screen,
-                                           self.background)
+            dirty_rects = utility.draw_all(CALLER.allsprites, CALLER.screen,
+                                           CALLER.background)
             pygame.display.update(dirty_rects)
 
     def options(self):
