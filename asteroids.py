@@ -16,7 +16,7 @@ def main():
     clock = pygame.time.Clock()
     background = pygame.Surface(screen.get_size()).convert()
     random.seed()
-    done = False
+    still_running = True
 
     # common variables
     bg_color = (255, 255, 255)
@@ -24,14 +24,15 @@ def main():
     font_file = os.path.join('data', 'fonts', 'Nunito-Regular.ttf')
     font_color = (20, 20, 20)
     fps = 60
+    padding = 5
 
-    game_state_obj = game_state.GameState(screen, background,
-                                          bg_color, clock, fps, 
-                                          font_color, font_file, 
-                                          button_color)
+    state_machine = game_state.StateMachine(screen, background,
+                                             bg_color, clock, fps, 
+                                             font_color, font_file, 
+                                             button_color, padding)
  
     while still_running:
-        still_running = game_state_obj.main_loop()
+        still_running = state_machine.main_loop()
 
     pygame.quit()
     sys.exit()

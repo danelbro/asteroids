@@ -4,21 +4,26 @@ import assets
 import utility
 import random
 import math
+import enum
+import configparser
 
 
-class GameState():
+class GameStates(enum.Enum):
+    INTRO = enum.auto()
+    OPTIONS = enum.auto()
+    MAIN = enum.auto()
+    END = enum.auto()
+
+
+class StateMachine():
     """A class to control the game state, containing functions for
     different game states.
     """
 
     def __init__(self, screen, background, bg_color,
-                 clock, fps, font_color, font_file, button_color):
-        """Construct a GameState object."""
-        self.state_dict = {'intro': self.intro,
-                           'main': self.main,
-                           'options': self.options,
-                           'end': self.end}
-        self.state = 'intro'
+                 clock, fps, font_color, font_file,
+                 button_color, padding):
+        """Construct a StateMachine object."""
         self.score = 0
         self.level = 1
         self.screen = screen
@@ -29,495 +34,625 @@ class GameState():
         self.font_color = font_color
         self.font_file = font_file
         self.button_color = button_color
-        self.allsprites = []
+        self.padding = padding
+        self.states_dict = {GameStates.INTRO: Intro(self.font_file,
+                                                    self.font_color,
+                                                    self.button_color,
+                                                    self.padding,
+                                                    self.screen,
+                                                    self.background,
+                                                    self.bg_color),
+                            GameStates.OPTIONS: Options(),
+                            GameStates.MAIN: Main(self.font_file,
+                                                  self.font_color,
+                                                  self.button_color,
+                                                  self.padding,
+                                                  self.screen,
+                                                  self.background,
+                                                  self.bg_color),
+                            GameStates.END: End()}
+        self.current_state = GameStates.INTRO
 
     def main_loop(self):
         self.clock.tick(self.fps)
-        self.current_state.get_input()
-        self.current_state.update()
-        self.current_state.render()
-        self.current_state = self.current_state.next_state()
-        
-        if self.current_state is None:
-            return False
-        else:
+        delta_time = self.clock.get_time() / 1000  # converted to seconds
+        input_dict = self.states_dict[self.current_state].get_input()
+        next_state = self.states_dict[self.current_state].update(
+            input_dict, delta_time)
+        self.states_dict[self.current_state].render(delta_time)
+
+        if next_state:
+            self.current_state = next_state
             return True
+        else:
+            return False
 
 
 class Intro():
-    def __init__(self):
-        self.title_y_pos = CALLER.screen.get_rect().centery
-        self.padding = 5
+    def __init__(self, font_file, font_color, button_color, padding,
+                 screen, background, bg_color):
+        self.screen = screen
+        self.background = background
+        self.bg_color = bg_color
+        self.font_file = font_file
+        self.font_color = font_color
+        self.button_color = button_color
+        self.padding = padding
+        self.seen = False
 
-        CALLER.title = assets.Title('Asteroids', CALLER.font_file, 52, CALLER.font_color,
-                                  (CALLER.screen.get_rect().centerx, title_y_pos))
+        self.title_y_pos = self.screen.get_rect().centery
+        self.title = assets.Title('Asteroids',
+                                  self.font_file, 52,
+                                  self.font_color,
+                                  (self.screen.get_rect().centerx,
+                                   self.title_y_pos))
 
-        buttons_panel = assets.Buttons(CALLER.font_file, 28, CALLER.font_color,
-                                       CALLER.button_color,
-                                       CALLER.screen.get_rect().centerx, 0,
-                                       padding, 'New Game', 'Options', 'Quit')
+        self.buttons_panel = assets.Buttons(self.font_file, 28,
+                                            self.font_color,
+                                            self.button_color,
+                                            screen.get_rect().centerx, 0,
+                                            padding,
+                                            'New Game',
+                                            'Options',
+                                            'Quit')
 
-        buttons_y_pos = (CALLER.screen.get_height()
-                         - (padding * 4)
-                         - buttons_panel.height)
+        self.buttons_y_pos = (self.screen.get_height()
+                              - (self.padding * 4)
+                              - self.buttons_panel.height)
 
-        buttons_panel.y_pos = buttons_y_pos
-        buttons_panel.reposition()
+        self.buttons_panel.y_pos = self.buttons_y_pos
+        self.buttons_panel.reposition()
+        self.all_assets = [self.title, self.buttons_panel]
 
-        CALLER.allsprites.extend([title, buttons_panel])
-        CALLER.background.fill(CALLER.bg_color)
-        CALLER.screen.blit(CALLER.background, (0, 0))
-        pygame.display.update()
-
-        while True:
-            CALLER.clock.tick(CALLER.fps)
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return None
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        return None
-                    if event.key == pygame.K_RETURN:
-                        CALLER.allsprites.clear()
-                        return 'main'
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
-                    for button in buttons_panel.buttons:
-                        if button['label'] == 'New Game':
-                            if button['button_rect'].collidepoint(mouse_pos):
-                                CALLER.allsprites.clear()
-                                return 'main'
-                        elif button['label'] == 'Options':
-                            if button['button_rect'].collidepoint(mouse_pos):
-                                CALLER.allsprites.clear()
-                                return 'options'
-                        elif button['label'] == 'Quit':
-                            if button['button_rect'].collidepoint(mouse_pos):
-                                return None
-
-            dirty_rects = utility.draw_all(CALLER.allsprites, CALLER.screen,
-                                           CALLER.background)
-            pygame.display.update(dirty_rects)
-
-    def options(self):
-        """An options menu.
-
-        Returns:
-            str: a new game state
-            None: the player quit the game
-        """
-        return None
-
-    def main(self):
-        """The main game loop. 
-
-        The player controls a spaceship and shoots at asteroids. If the
-        player is hit by an asteroid, they lose a life. Once they are 
-        out of lives, the game ends. The player can also use a 
-        hyperspace jump to get out of a tight spot, at the risk of
-        immediately dying or landing on an asteroid. Large asteroids 
-        break apart to form new asteroids. The player earns more points 
-        for destroying smaller asteroids. When all asteroids are 
-        cleared, a new level starts. Each level spawns more asteroids 
-        than the previous level. Eventually enemy flying saucers which 
-        shoot at the player appear.
-
-        Returns:
-            str: a new game state
-            None: the player quit the game
-        """
-        # initial variables
-        level_transition_time = 1000
-        asteroids_spawned = False
-        player_alive = True
-        player_hit_time = 0
-        base_score = 150
-        self.score = 0
-        self.level = 1
-        self.lives = 3
-        scoreboard_pos = (15, 10)
-
-        # player variables
-        player_pos = self.screen.get_rect().center
-        player_dir = (0, -1)
-        player_thrust = 16000
-        player_mass = 32
-        player_turn_speed = 400
-        player_fire_rate = 6  # shots per second
-        player_shot_power = 550
-        player_animation_speed = 24
-        player_folder_name = 'player'
-        player_remains_alive = True
-        player_hyperspace_length = 0.5  # in seconds
-        player_respawn_flash_speed = 24
-        level_transition_flash_speed = 16
-        player_respawn_time = 1500  # in miliseconds
-        dead_player_folder_name = 'dead_player'
-        dead_player_animation_speed = 24
-        player_dead_time = (dead_player_animation_speed
-                            / (dead_player_animation_speed / 1000))
-        level_friction = 0.1
-        player_bullet_lifespan = 1.0
-
-        # enemy variables
-        enemy_min_speed = 200
-        enemy_max_speed = 300
-        enemy_min_angle = 0.3
-        min_enemy_distance = 150
-        enemy_shot_power = 500
-        enemy_fire_rate = 0.5  # shots per second
-        enemy_bullet_lifespan = 1.0
-        enemy_spawned = False
-        time_between_enemy_spawns = 7000  # in miliseconds
-        enemy_overlap_offset = 4000
-        enemy_max_innacuracy_angle = 20
-        enemy_max_difficulty_at_score = 30000
-
-        # asteroid variables
-        level_asteroids_offset = 3
-        min_asteroid_speed = 100
-        max_asteroid_speed = 150
-        min_asteroid_dir_angle = 0.3
-        min_asteroid_dist = 200     # minimum distance from the player, center-to-center
-        new_asteroid_velocity_scale = 1.2
-        min_broken_asteroids = 2
-        max_broken_asteroids = 2
-        max_new_asteroids = 10
-
-        # initialise scoreboard, sprite groups, player and asteroids
-        scoreboard = assets.Scoreboard(self.font_file, 24, self.font_color, self.bg_color,
-                                       scoreboard_pos, self.level, self.score, self.lives)
-        scoreboard.hide()
-
-        players = pygame.sprite.RenderUpdates()
-        enemies = pygame.sprite.RenderUpdates()
-        asteroids = pygame.sprite.RenderUpdates()
-        shots = pygame.sprite.RenderUpdates()
-        enemy_shots = pygame.sprite.RenderUpdates()
-        self.allsprites.extend([players, enemies, asteroids,
-                                shots, enemy_shots, scoreboard])
-
-        player = assets.Player(player_pos, player_dir, player_thrust,
-                               player_mass, player_turn_speed, level_friction,
-                               1000 / player_fire_rate, player_shot_power,
-                               player_animation_speed, player_folder_name,
-                               player_remains_alive, player_hyperspace_length,
-                               self.bg_color, self.lives, player_respawn_flash_speed,
-                               player_respawn_time / 1000, player_bullet_lifespan)
-        players.add(player)
-
-        # initial blit/update
+    def _first_render(self):
         self.background.fill(self.bg_color)
         self.screen.blit(self.background, (0, 0))
         pygame.display.update()
-        level_start_time = pygame.time.get_ticks() + level_transition_time
-        previous_enemy_spawn = level_start_time
+        self.seen = True
 
-        # start game loop
-        while True:
-            dirty_rects = []
-            colliding_asteroids = []
-            self.clock.tick(self.fps)
-            delta_time = self.clock.get_time() / 1000  # converted to seconds
-            current_time = pygame.time.get_ticks()
-            player_has_control = (player.alive
-                                  and not player.in_hyperspace)
-            player_is_vulnerable = (player_has_control
-                                    and not player.respawning)
+    def get_input(self):
+        input_dict = {'next_state': GameStates.INTRO}
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                input_dict['next_state'] = None
+                break
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    input_dict['next_state'] = None
+                    break
+                if event.key == pygame.K_RETURN:
+                    input_dict['next_state'] = GameStates.MAIN
+                    break
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                for button in self.buttons_panel.buttons:
+                    if button['label'] == 'New Game':
+                        if button['button_rect'].collidepoint(mouse_pos):
+                            input_dict['next_state'] = GameStates.MAIN
+                            break
+                    elif button['label'] == 'Options':
+                        if button['button_rect'].collidepoint(mouse_pos):
+                            input_dict['next_state'] = GameStates.OPTIONS
+                            break
+                    elif button['label'] == 'Quit':
+                        if button['button_rect'].collidepoint(mouse_pos):
+                            input_dict['next_state'] = None
+                            break
+        return input_dict
 
-            score_at_frame_start = self.score
+    def update(self, input_dict, *args, **kwargs):
+        if not self.seen:
+            self._first_render()
+        if input_dict['next_state']:
+            if input_dict['next_state'] != GameStates.INTRO:
+                self.seen = False
+            return input_dict['next_state']
+        else:
+            return None
 
-            # handle input
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
+    def render(self, *args, **kwargs):
+        dirty_rects = utility.draw_all(self.all_assets, self.screen,
+                                       self.background)
+        pygame.display.update(dirty_rects)
+
+
+class Options():
+    def get_input(self):
+        return {'next_state': GameStates.INTRO}
+
+    def update(self, *args, **kwargs):
+        pass
+
+    def render(self, *args, **kwargs):
+        pass
+
+
+class Main():
+    def __init__(self, font_file, font_color, button_color, padding,
+                 screen, background, bg_color):
+        # general
+        self.FONT_FILE = font_file
+        self.FONT_COLOR = font_color
+        self.BUTTON_COLOR = button_color
+        self.PADDING = padding
+        self.BG_COLOR = bg_color
+        self.LEVEL_TRANSITION_TIME = 1000
+        self.BASE_SCORE = 150
+        self.SCOREBOARD_POS = (15, 10)
+        self.SCOREBOARD_FONT_SIZE = 24
+
+        self.screen = screen
+        self.background = background
+        self.all_assets = []
+        self.seen = False
+
+        self.config = configparser.ConfigParser()
+        self.config.read('config.ini')
+        player_config = self.config['PLAYER']
+        enemy_config = self.config['ENEMY']
+        asteroid_config = self.config['ASTEROID']
+
+        # player
+        self.player_remains_alive = True
+
+        self.PLAYER_POS = screen.get_rect().center
+        self.PLAYER_DIR = (0, -1)
+        self.PLAYER_FOLDER_NAME = 'player'
+        self.PLAYER_THRUST = int(player_config['thrust'])
+        self.PLAYER_MASS = int(player_config['mass'])
+        self.PLAYER_TURN_SPEED = int(player_config['turn_speed'])
+        self.LEVEL_FRICTION = float(player_config['level_friction'])
+        self.PLAYER_FIRE_RATE = int(player_config['fire_rate_per_s'])
+        self.PLAYER_SHOT_POWER = int(player_config['shot_power'])
+        self.PLAYER_ANIMATION_SPEED = int(player_config['animation_speed'])
+        self.PLAYER_HYPERSPACE_LENGTH = float(
+            player_config['hyperspace_length_s'])
+        self.PLAYER_RESPAWN_FLASH_SPEED = int(
+            player_config['respawn_flash_speed'])
+        self.LEVEL_TRANSITION_FLASH_SPEED = int(
+            player_config['level_transition_flash_speed'])
+        self.PLAYER_RESPAWN_TIME = int(player_config['respawn_time_ms'])
+        self.PLAYER_BULLET_LIFESPAN = float(player_config['bullet_lifespan'])
+
+        # dead player
+        self.DEAD_PLAYER_FOLDER_NAME = 'dead_player'
+        self.DEAD_PLAYER_ANIMATION_SPEED = 24
+        self.PLAYER_DEATH_TIMER = 1000  # in miliseconds
+
+        # enemy
+        self.ENEMY_MIN_SPEED = int(enemy_config['min_speed'])
+        self.ENEMY_MAX_SPEED = int(enemy_config['max_speed'])
+        self.ENEMY_MIN_ANGLE = float(enemy_config['min_angle'])
+        self.MIN_ENEMY_DISTANCE = int(enemy_config['min_distance'])
+        self.ENEMY_SHOT_POWER = int(enemy_config['shot_power'])
+        self.ENEMY_FIRE_RATE = float(enemy_config['fire_rate_per_s'])
+        self.ENEMY_BULLET_LIFESPAN = float(enemy_config['bullet_lifespan_s'])
+        self.TIME_BETWEEN_ENEMY_SPAWNS = int(
+            enemy_config['time_between_spawns_ms'])
+        self.ENEMY_OVERLAP_OFFSET = int(
+            enemy_config['spawn_overlap_offset_ms'])
+        self.ENEMY_MAX_INNACURACY_ANGLE = int(
+            enemy_config['max_innacuracy_angle'])
+        self.ENEMY_MAX_DIFFICULTY_AT_SCORE = int(
+            enemy_config['max_difficulty_score'])
+
+        # asteroid
+        self.LEVEL_ASTEROIDS_OFFSET = int(
+            asteroid_config['spawn_level_offset'])
+        self.MIN_ASTEROID_SPEED = int(asteroid_config['min_speed'])
+        self.MAX_ASTEROID_SPEED = int(asteroid_config['max_speed'])
+        self.MIN_ASTEROID_DIR_ANGLE = float(asteroid_config['min_dir_angle'])
+        self.MIN_ASTEROID_DIST = int(asteroid_config['min_distance'])
+        self.NEW_ASTEROID_VELOCITY_SCALE = float(
+            asteroid_config['new_asteroid_velocity_scale'])
+        self.MIN_BROKEN_ASTEROIDS = int(
+            asteroid_config['min_broken_asteroids'])
+        self.MAX_BROKEN_ASTEROIDS = int(
+            asteroid_config['max_broken_asteroids'])
+        self.MAX_NEW_ASTEROIDS = int(asteroid_config['max_new_asteroids'])
+
+    def _first_render(self):
+        self.score = 0
+        self.level = 1
+        self.lives = 3
+        self.player_alive = True
+        self.player_out_of_lives = False
+        self.asteroids_spawned = False
+        self.player_hit_time = 0
+        self.previous_enemy_spawn = 0
+        self.enemy_spawned = False
+
+        # initialise scoreboard, sprite groups, player and asteroids
+        self.scoreboard = assets.Scoreboard(self.FONT_FILE,
+                                            self.SCOREBOARD_FONT_SIZE,
+                                            self.FONT_COLOR,
+                                            self.BG_COLOR,
+                                            self.SCOREBOARD_POS,
+                                            self.level, self.score, self.lives)
+        self.scoreboard.hide()
+
+        self.players = pygame.sprite.RenderUpdates()
+        self.enemies = pygame.sprite.RenderUpdates()
+        self.asteroids = pygame.sprite.RenderUpdates()
+        self.shots = pygame.sprite.RenderUpdates()
+        self.enemy_shots = pygame.sprite.RenderUpdates()
+        self.all_assets.extend([self.players, self.enemies, self.asteroids,
+                                self.shots, self.enemy_shots, self.scoreboard])
+
+        self.player = assets.Player(self.PLAYER_POS, self.PLAYER_DIR,
+                                    self.PLAYER_THRUST, self.PLAYER_MASS,
+                                    self.PLAYER_TURN_SPEED,
+                                    self.LEVEL_FRICTION,
+                                    1000 / self.PLAYER_FIRE_RATE,
+                                    self.PLAYER_SHOT_POWER,
+                                    self.PLAYER_ANIMATION_SPEED,
+                                    self.PLAYER_FOLDER_NAME,
+                                    self.player_remains_alive,
+                                    self.PLAYER_HYPERSPACE_LENGTH,
+                                    self.BG_COLOR, self.lives,
+                                    self.PLAYER_RESPAWN_FLASH_SPEED,
+                                    self.PLAYER_RESPAWN_TIME / 1000,
+                                    self.PLAYER_BULLET_LIFESPAN)
+        self.players.add(self.player)
+
+        self.background.fill(self.BG_COLOR)
+        self.screen.blit(self.background, (0, 0))
+        pygame.display.update()
+        self.level_start_time = (pygame.time.get_ticks()
+                                 + self.LEVEL_TRANSITION_TIME)
+        self.previous_enemy_spawn = self.level_start_time
+        self.seen = True
+
+    def _prepare_next_state(self):
+        self.seen = False
+        self.all_assets.clear()
+
+    def _handle_input(self, input_dict, player_has_control, current_time):
+        if player_has_control:
+            if input_dict['player_engine_on']:
+                self.player.engine_on()
+            if input_dict['player_engine_off']:
+                self.player.engine_off()
+            if input_dict['player_turn'] is not None:
+                self.player.turn(input_dict['player_turn'])
+            if input_dict['player_hyperspace']:
+                self.player.hyperspace(len(self.asteroids))
+            if input_dict['player_fire']:
+                shot = self.player.gun.fire(current_time, self.player.rect,
+                                            self.player.facing_direction)
+                if shot is not None:
+                    self.shots.add(shot)
+
+    def _check_player_collisions(self):
+        colliding_asteroids = pygame.sprite.groupcollide(
+            self.players, self.asteroids, False, False,
+            pygame.sprite.collide_mask)
+
+        colliding_enemy_shots = pygame.sprite.groupcollide(
+            self.players, self.enemy_shots, False, True,
+            pygame.sprite.collide_mask)
+
+        colliding_spaceships = pygame.sprite.groupcollide(
+            self.players, self.enemies, False, False,
+            pygame.sprite.collide_mask)
+
+        return {**colliding_asteroids,
+                **colliding_enemy_shots,
+                **colliding_spaceships}
+
+    def _kill_player(self, current_time):
+        self.dead_player = assets.DeadPlayer(self.DEAD_PLAYER_FOLDER_NAME,
+                                             self.DEAD_PLAYER_ANIMATION_SPEED,
+                                             self.player.rect.center,
+                                             self.player.facing_direction,
+                                             self.player.velocity,
+                                             self.player.velocity_direction,
+                                             self.LEVEL_FRICTION,
+                                             self.player.mass)
+        self.players.remove(self.player)
+        self.player.lives -= 1
+        self.lives = self.player.lives
+        self.player.alive = False
+        self.player_hit_time = current_time
+        self.players.add(self.dead_player)
+        if self.player.lives < 1:
+            return True
+        else:
+            return False
+
+    def _respawn_player(self):
+        self.players.remove(self.dead_player)
+        self.player.respawn(self.PLAYER_RESPAWN_TIME / 1000,
+                            self.PLAYER_RESPAWN_FLASH_SPEED,
+                            self.screen.get_rect().center)
+        self.players.add(self.player)
+
+    def _shoot_enemies(self, current_time):
+        enemies_shot_by_player = pygame.sprite.groupcollide(
+            self.enemies, self.shots, True, True,
+            pygame.sprite.collide_mask)
+
+        for enemy, shot_list in enemies_shot_by_player.items():
+            self.score += int(self.BASE_SCORE * enemy.state)
+            enemy.kill()
+            self.enemy_spawned = False
+            self.previous_enemy_spawn = current_time - self.ENEMY_OVERLAP_OFFSET
+
+    def _spawn_enemy(self, current_time):
+        new_enemy_state_gen = random.random()
+        new_enemy_state_weight = utility.normalize(self.score, 0, 40000)
+        if new_enemy_state_weight >= new_enemy_state_gen:
+            new_enemy_state = 1
+        else:
+            new_enemy_state = 2
+
+        self.enemies.add(assets.Enemy.spawn(
+            self.ENEMY_MIN_SPEED, self.ENEMY_MAX_SPEED,
+            self.ENEMY_MIN_ANGLE, self.player.rect, self.ENEMY_SHOT_POWER,
+            self.screen.get_rect().width, self.screen.get_rect().height,
+            1000 / self.ENEMY_FIRE_RATE, self.ENEMY_SHOT_POWER,
+            self.ENEMY_BULLET_LIFESPAN, new_enemy_state,
+            self.ENEMY_MAX_INNACURACY_ANGLE,
+            self.ENEMY_MAX_DIFFICULTY_AT_SCORE))
+        self.previous_enemy_spawn = current_time
+        self.enemy_spawned = True
+
+    def _check_asteroid_collisions(self):
+        asteroids_shot_by_player = pygame.sprite.groupcollide(
+            self.asteroids, self.shots, True, True,
+            pygame.sprite.collide_mask
+        )
+
+        asteroids_shot_by_enemies = pygame.sprite.groupcollide(
+            self.asteroids, self.enemy_shots, True, True,
+            pygame.sprite.collide_mask
+        )
+
+        shot_asteroids = {**asteroids_shot_by_player,
+                          **asteroids_shot_by_enemies}
+
+        for asteroid, shot_list in shot_asteroids.items():
+            for shot in shot_list:
+                if shot.id == 'player':
+                    self.score += int(self.BASE_SCORE / asteroid.state)
+                    break
+
+            number_to_spawn = random.randint(self.MIN_BROKEN_ASTEROIDS,
+                                             self.MAX_BROKEN_ASTEROIDS)
+            new_asteroids = asteroid.hit(
+                self.NEW_ASTEROID_VELOCITY_SCALE, number_to_spawn)
+            if new_asteroids is not None:
+                self.asteroids.add(new_asteroids)
+
+    def _start_level_transition(self, current_time):
+        self.level += 1
+        self.shots.clear(self.screen, self.background)
+        self.shots.empty()
+        self.level_start_time = (current_time
+                                 + self.LEVEL_TRANSITION_TIME)
+        self.previous_enemy_spawn = self.level_start_time
+        self.player.respawn(self.LEVEL_TRANSITION_TIME / 1000,
+                            self.LEVEL_TRANSITION_FLASH_SPEED,
+                            self.screen.get_rect().center,
+                            reset=False)
+        self.asteroids_spawned = False
+
+    def _start_next_level(self):
+        self.scoreboard.show()
+        asteroid_number = min(
+            self.MAX_NEW_ASTEROIDS, self.level + self.LEVEL_ASTEROIDS_OFFSET)
+        ast_list = assets.Asteroid.spawn(asteroid_number,
+                                         self.MIN_ASTEROID_SPEED,
+                                         self.MAX_ASTEROID_SPEED,
+                                         self.MIN_ASTEROID_DIR_ANGLE,
+                                         self.player.rect,
+                                         self.MIN_ASTEROID_DIST,
+                                         self.screen.get_width(),
+                                         self.screen.get_height())
+        self.asteroids.add(ast_list)
+        self.asteroids_spawned = True
+
+    def _enemy_fire(self, current_time):
+        for enemy in self.enemies.sprites():
+            if enemy.primed:
+                enemy_shot = enemy.gun.fire(current_time, enemy.rect,
+                                            enemy.facing_direction)
+                if enemy_shot is not None:
+                    self.enemy_shots.add(enemy_shot)
+
+    def get_input(self):
+        input_dict = {'next_state': GameStates.MAIN,
+                      'player_hyperspace': False,
+                      'player_fire': False,
+                      'player_engine_on': False,
+                      'player_engine_off': False,
+                      'player_turn': None}
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                input_dict['next_state'] = None
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    input_dict['next_state'] = GameStates.INTRO
+                if event.key == pygame.K_LSHIFT:
+                    input_dict['player_hyperspace'] = True
+                if event.key == pygame.K_SPACE:
+                    input_dict['player_fire'] = True
+            elif event.type == pygame.KEYUP:
+                if event.key == pygame.K_UP:
+                    input_dict['player_engine_off'] = True
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_UP]:
+            input_dict['player_engine_on'] = True
+        if keys[pygame.K_LEFT]:
+            input_dict['player_turn'] = 1
+        if keys[pygame.K_RIGHT]:
+            input_dict['player_turn'] = -1
+
+        return input_dict
+
+    def update(self, input_dict, delta_time, *args, **kwargs):
+        if not self.seen:
+            self._first_render()
+        current_time = pygame.time.get_ticks()
+        player_has_control = (self.player.alive
+                              and not self.player.in_hyperspace)
+        player_is_vulnerable = (player_has_control
+                                and not self.player.respawning)
+
+        self._handle_input(input_dict, player_has_control, current_time)
+
+        if player_is_vulnerable:
+            colliding_things = self._check_player_collisions()
+            if len(colliding_things) > 0 or not self.player.remains_alive:
+                self.player_out_of_lives = self._kill_player(current_time)
+
+        if (not self.player.alive
+            and not self.player_out_of_lives
+            and (current_time - self.player_hit_time
+                 >= self.PLAYER_DEATH_TIMER)):
+            self._respawn_player()
+
+        self._shoot_enemies(current_time)
+
+        if (not self.enemy_spawned
+            and (current_time - self.previous_enemy_spawn
+                 >= self.TIME_BETWEEN_ENEMY_SPAWNS)):
+            self._spawn_enemy(current_time)
+
+        self._check_asteroid_collisions()
+
+        if len(self.asteroids) == 0 and len(self.enemies) == 0:
+            if self.asteroids_spawned:
+                self._start_level_transition(current_time)
+            if current_time - self.level_start_time >= 0:
+                self._start_next_level()
+
+        self._enemy_fire(current_time)
+
+        if input_dict['next_state']:
+            if input_dict['next_state'] != GameStates.MAIN:
+                self._prepare_next_state()
+            return input_dict['next_state']
+        else:
+            return None
+
+    def render(self, delta_time, *args, **kwargs):
+        dirty_rects = utility.draw_all(self.all_assets, self.screen,
+                                       self.background, delta_time,
+                                       self.score, self.level, self.lives,
+                                       player_rect=self.player.rect)
+        pygame.display.update(dirty_rects)
+
+
+class End():
+    def get_input(self):
+        pass
+
+    def update(self, *args, **kwargs):
+        pass
+
+    def render(self):
+        pass
+
+
+"""The game over screen.
+
+Presents a message, score, list of top 5 highscores, and a
+menu to the player. If the score is higher than one of the
+presented highscores, ask the player to enter their name to
+ save their highscore. The menu has buttons to start a new game,
+  return to the main menu, or quit.
+
+   Returns:
+        str: a new game state
+        None: the player quit the game.
+    """
+""" text_pos = 50
+    padding = 5
+
+    heading_y_pos = text_pos
+    heading = assets.Title('Game Over', self.font_file, 42,
+                           self.font_color,
+                           (self.screen.get_rect().centerx,
+                            heading_y_pos))
+
+    score_heading_y_pos = heading_y_pos + heading.height + padding
+
+    score_heading = assets.Title(('Score: '
+                                  + str(utility.thousands(self.score))),
+                                 self.font_file, 36, self.font_color,
+                                 (self.screen.get_rect().centerx,
+                                  score_heading_y_pos))
+
+    highscores_y_pos = (score_heading_y_pos
+                        + score_heading.height
+                        + padding)
+
+    highscores = assets.Highscores(self.score, self.font_file, 36,
+                                   self.font_color,
+                                   self.screen.get_rect().centerx,
+                                   highscores_y_pos, padding, self.button_color)
+
+    buttons_panel = assets.Buttons(self.font_file, 28, self.font_color,
+                                   self.button_color,
+                                   self.screen.get_rect().centerx, 0,
+                                   padding, 'New Game', 'Main Menu', 'Quit')
+
+    buttons_y_pos = (self.screen.get_height()
+                     - (padding * 4)
+                     - buttons_panel.height)
+
+    buttons_panel.y_pos = buttons_y_pos
+    buttons_panel.reposition()
+
+    time_to_start = 1000
+    menu_showing = False
+    start_time = pygame.time.get_ticks()
+
+    while True:
+        self.clock.tick(self.fps)
+        current_time = pygame.time.get_ticks()
+        delta_time = self.clock.get_time() / 1000
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return None
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    self.allsprites.clear()
                     return None
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.allsprites.clear()
-                        return 'intro'
-                    if (event.key == pygame.K_LSHIFT
-                            and player_has_control):
-                        player.hyperspace(len(asteroids))
-                    if (event.key == pygame.K_SPACE
-                            and player_has_control):
-                        shot = player.gun.fire(current_time, player.rect,
-                                               player.facing_direction)
-                        if shot is not None:
-                            shots.add(shot)
-                elif event.type == pygame.KEYUP:
-                    if (event.key == pygame.K_UP
-                            and player_has_control):
-                        player.engine_off()
+                if event.key == pygame.K_RETURN:
+                    self.allsprites.clear()
+                    return 'main'
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                for button in buttons_panel.buttons:
+                    if button['label'] == 'New Game':
+                        if button['button_rect'].collidepoint(mouse_pos):
+                            self.allsprites.clear()
+                            return 'main'
+                    elif button['label'] == 'Main Menu':
+                        if button['button_rect'].collidepoint(mouse_pos):
+                            self.allsprites.clear()
+                            return 'intro'
+                    elif button['label'] == 'Quit':
+                        if button['button_rect'].collidepoint(mouse_pos):
+                            return None
 
-            keys = pygame.key.get_pressed()
-            if player_has_control:
-                if keys[pygame.K_UP]:
-                    player.engine_on()
-                if keys[pygame.K_LEFT]:
-                    player.turn(1)
-                if keys[pygame.K_RIGHT]:
-                    player.turn(-1)
+        dirty_rects = utility.draw_all(self.allsprites, self.screen,
+                                       self.background, delta_time,
+                                       self.score, self.level, self.lives)
 
-            # check if the player got hit - lose a life if so
-            if player_is_vulnerable:
-                colliding_asteroids = pygame.sprite.groupcollide(
-                    players, asteroids, False, False,
-                    pygame.sprite.collide_mask
-                )
+        if (not menu_showing and
+                current_time - start_time >= time_to_start):
+            menu_showing = True
+            scoreboard = self.allsprites.pop()
+            dirty_rects.extend(scoreboard.clear(self.screen,
+                                                self.background))
+            self.allsprites.extend([heading, score_heading,
+                                    highscores, buttons_panel])
 
-                colliding_enemy_shots = pygame.sprite.groupcollide(
-                    players, enemy_shots, False, True,
-                    pygame.sprite.collide_mask
-                )
-
-                colliding_spaceships = pygame.sprite.groupcollide(
-                    players, enemies, False, False,
-                    pygame.sprite.collide_mask
-                )
-
-                colliding_things = {**colliding_asteroids,
-                                    **colliding_enemy_shots,
-                                    **colliding_spaceships}
-
-                if len(colliding_things) > 0 or not player.remains_alive:
-                    dead_player = assets.DeadPlayer(
-                        dead_player_folder_name, dead_player_animation_speed,
-                        player.rect.center, player.facing_direction,
-                        player.velocity, player.velocity_direction,
-                        level_friction, player.mass
-                    )
-                    players.remove(player)
-                    player.lives -= 1
-                    self.lives = player.lives
-                    player.alive = False
-                    player_hit_time = current_time
-                    players.add(dead_player)
-                    if player.lives < 1:
-                        return 'end'
-
-            # respawn the player if necessary
-            if (not player.alive
-                    and current_time - player_hit_time >= player_dead_time):
-                players.remove(dead_player)
-                player.respawn(player_respawn_time / 1000,
-                               player_respawn_flash_speed,
-                               self.screen.get_rect().center)
-                players.add(player)
-
-            # check whether enemies got shot
-            enemies_shot_by_player = pygame.sprite.groupcollide(
-                enemies, shots, True, True,
-                pygame.sprite.collide_mask
-            )
-
-            for enemy, shot_list in enemies_shot_by_player.items():
-                self.score += int(base_score * enemy.state)
-                enemy.kill()
-                enemy_spawned = False
-                previous_enemy_spawn = current_time - enemy_overlap_offset
-
-            # spawn an enemy if it's time
-            if (not enemy_spawned
-                and current_time - previous_enemy_spawn
-                    >= time_between_enemy_spawns):
-                new_enemy_state_gen = random.random()
-                new_enemy_state_weight = utility.normalize(
-                    self.score, 0, 40000
-                )
-                if new_enemy_state_weight >= new_enemy_state_gen:
-                    new_enemy_state = 1
-                else:
-                    new_enemy_state = 2
-
-                enemies.add(assets.Enemy.spawn(enemy_min_speed,
-                                               enemy_max_speed,
-                                               enemy_min_angle,
-                                               player.rect,
-                                               min_enemy_distance,
-                                               self.screen.get_rect().width,
-                                               self.screen.get_rect().height,
-                                               1000 / enemy_fire_rate,
-                                               enemy_shot_power,
-                                               enemy_bullet_lifespan,
-                                               new_enemy_state,
-                                               enemy_max_innacuracy_angle,
-                                               enemy_max_difficulty_at_score))
-                previous_enemy_spawn = current_time
-                enemy_spawned = True
-
-            # check whether asteroids got shot
-            asteroids_shot_by_player = pygame.sprite.groupcollide(
-                asteroids, shots, True, True,
-                pygame.sprite.collide_mask
-            )
-
-            asteroids_shot_by_enemies = pygame.sprite.groupcollide(
-                asteroids, enemy_shots, True, True,
-                pygame.sprite.collide_mask
-            )
-
-            shot_asteroids = {**asteroids_shot_by_player,
-                              **asteroids_shot_by_enemies}
-
-            for asteroid, shot_list in shot_asteroids.items():
-                for shot in shot_list:
-                    if shot.id == 'player':
-                        self.score += int(base_score / asteroid.state)
-                        break
-
-                number_to_spawn = random.randint(min_broken_asteroids,
-                                                 max_broken_asteroids)
-                new_asteroids = asteroid.hit(
-                    new_asteroid_velocity_scale, number_to_spawn
-                )
-                if new_asteroids is not None:
-                    asteroids.add(new_asteroids)
-
-            # check if all asteroids were destroyed
-            if len(asteroids) == 0 and len(enemies) == 0:
-                # enter level transition if so
-                if asteroids_spawned:
-                    self.level += 1
-                    shots.clear(self.screen, self.background)
-                    shots.empty()
-                    level_start_time = current_time + level_transition_time
-                    previous_enemy_spawn = level_start_time
-                    player.respawn(level_transition_time / 1000,
-                                   level_transition_flash_speed,
-                                   self.screen.get_rect().center,
-                                   reset=False)
-                    asteroids_spawned = False
-
-                # start a new level if necessary
-                if current_time - level_start_time >= 0:
-                    scoreboard.show()
-                    asteroid_number = min(
-                        max_new_asteroids, self.level + level_asteroids_offset
-                    )
-                    ast_list = assets.Asteroid.spawn(asteroid_number,
-                                                     min_asteroid_speed,
-                                                     max_asteroid_speed,
-                                                     min_asteroid_dir_angle,
-                                                     player.rect,
-                                                     min_asteroid_dist,
-                                                     self.screen.get_width(),
-                                                     self.screen.get_height())
-                    asteroids.add(ast_list)
-                    asteroids_spawned = True
-
-            # have the enemy fire at the player
-            for enemy in enemies.sprites():
-                if enemy.primed:
-                    enemy_shot = enemy.gun.fire(current_time, enemy.rect,
-                                                enemy.facing_direction)
-                    if enemy_shot is not None:
-                        enemy_shots.add(enemy_shot)
-
-            # render
-            dirty_rects = utility.draw_all(self.allsprites, self.screen,
-                                           self.background, delta_time,
-                                           self.score, self.level, self.lives,
-                                           player_rect=player.rect)
-
-            pygame.display.update(dirty_rects)
-
-    def end(self):
-        """The game over screen. 
-
-        Presents a message, score, list of top 5 highscores, and a 
-        menu to the player. If the score is higher than one of the 
-        presented highscores, ask the player to enter their name to 
-        save their highscore. The menu has buttons to start a new game,
-        return to the main menu, or quit.
-
-        Returns:
-            str: a new game state
-            None: the player quit the game.
-        """
-        text_pos = 50
-        padding = 5
-
-        heading_y_pos = text_pos
-        heading = assets.Title('Game Over', self.font_file, 42,
-                               self.font_color,
-                               (self.screen.get_rect().centerx,
-                                heading_y_pos))
-
-        score_heading_y_pos = heading_y_pos + heading.height + padding
-
-        score_heading = assets.Title(('Score: '
-                                      + str(utility.thousands(self.score))),
-                                     self.font_file, 36, self.font_color,
-                                     (self.screen.get_rect().centerx,
-                                      score_heading_y_pos))
-
-        highscores_y_pos = (score_heading_y_pos
-                            + score_heading.height
-                            + padding)
-
-        highscores = assets.Highscores(self.score, self.font_file, 36,
-                                       self.font_color,
-                                       self.screen.get_rect().centerx,
-                                       highscores_y_pos, padding, self.button_color)
-
-        buttons_panel = assets.Buttons(self.font_file, 28, self.font_color,
-                                       self.button_color,
-                                       self.screen.get_rect().centerx, 0,
-                                       padding, 'New Game', 'Main Menu', 'Quit')
-
-        buttons_y_pos = (self.screen.get_height()
-                         - (padding * 4)
-                         - buttons_panel.height)
-
-        buttons_panel.y_pos = buttons_y_pos
-        buttons_panel.reposition()
-
-        time_to_start = 1000
-        menu_showing = False
-        start_time = pygame.time.get_ticks()
-
-        while True:
-            self.clock.tick(self.fps)
-            current_time = pygame.time.get_ticks()
-            delta_time = self.clock.get_time() / 1000
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    return None
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.allsprites.clear()
-                        return None
-                    if event.key == pygame.K_RETURN:
-                        self.allsprites.clear()
-                        return 'main'
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = pygame.mouse.get_pos()
-                    for button in buttons_panel.buttons:
-                        if button['label'] == 'New Game':
-                            if button['button_rect'].collidepoint(mouse_pos):
-                                self.allsprites.clear()
-                                return 'main'
-                        elif button['label'] == 'Main Menu':
-                            if button['button_rect'].collidepoint(mouse_pos):
-                                self.allsprites.clear()
-                                return 'intro'
-                        elif button['label'] == 'Quit':
-                            if button['button_rect'].collidepoint(mouse_pos):
-                                return None
-
-            dirty_rects = utility.draw_all(self.allsprites, self.screen,
-                                           self.background, delta_time,
-                                           self.score, self.level, self.lives)
-
-            if (not menu_showing and
-                    current_time - start_time >= time_to_start):
-                menu_showing = True
-                scoreboard = self.allsprites.pop()
-                dirty_rects.extend(scoreboard.clear(self.screen,
-                                                    self.background))
-                self.allsprites.extend([heading, score_heading,
-                                        highscores, buttons_panel])
-
-            pygame.display.update(dirty_rects)
+        pygame.display.update(dirty_rects)
+"""
