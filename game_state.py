@@ -180,6 +180,7 @@ class Main():
         self.BASE_SCORE = 150
         self.SCOREBOARD_POS = (15, 10)
         self.SCOREBOARD_FONT_SIZE = 24
+        self.STARTING_LIVES = 3
 
         self.screen = screen
         self.background = background
@@ -198,6 +199,7 @@ class Main():
         self.PLAYER_POS = screen.get_rect().center
         self.PLAYER_DIR = (0, -1)
         self.PLAYER_FOLDER_NAME = 'player'
+        self.EXTRA_LIFE_TARGET = 10000
         self.PLAYER_THRUST = int(player_config['thrust'])
         self.PLAYER_MASS = int(player_config['mass'])
         self.PLAYER_TURN_SPEED = int(player_config['turn_speed'])
@@ -253,8 +255,8 @@ class Main():
 
     def _first_render(self):
         self.score = 0
+        self.extra_life_tracker = 0
         self.level = 1
-        self.lives = 3
         self.player_alive = True
         self.player_out_of_lives = False
         self.asteroids_spawned = False
@@ -262,23 +264,14 @@ class Main():
         self.previous_enemy_spawn = 0
         self.enemy_spawned = False
 
-        # initialise scoreboard, sprite groups, player and asteroids
-        self.scoreboard = assets.Scoreboard(self.FONT_FILE,
-                                            self.SCOREBOARD_FONT_SIZE,
-                                            self.FONT_COLOR,
-                                            self.BG_COLOR,
-                                            self.SCOREBOARD_POS,
-                                            self.level, self.score, self.lives)
-        self.scoreboard.hide()
-
+        # initialise sprite groups, player and scoreboard
         self.players = pygame.sprite.RenderUpdates()
         self.enemies = pygame.sprite.RenderUpdates()
         self.asteroids = pygame.sprite.RenderUpdates()
         self.shots = pygame.sprite.RenderUpdates()
         self.enemy_shots = pygame.sprite.RenderUpdates()
-        self.all_assets.extend([self.players, self.enemies, self.asteroids,
-                                self.shots, self.enemy_shots, self.scoreboard])
-
+ 
+        
         self.player = assets.Player(self.PLAYER_POS, self.PLAYER_DIR,
                                     self.PLAYER_THRUST, self.PLAYER_MASS,
                                     self.PLAYER_TURN_SPEED,
@@ -289,11 +282,23 @@ class Main():
                                     self.PLAYER_FOLDER_NAME,
                                     self.player_remains_alive,
                                     self.PLAYER_HYPERSPACE_LENGTH,
-                                    self.BG_COLOR, self.lives,
+                                    self.BG_COLOR, self.STARTING_LIVES,
                                     self.PLAYER_RESPAWN_FLASH_SPEED,
                                     self.PLAYER_RESPAWN_TIME / 1000,
                                     self.PLAYER_BULLET_LIFESPAN)
         self.players.add(self.player)
+ 
+        self.scoreboard = assets.Scoreboard(self.FONT_FILE,
+                                            self.SCOREBOARD_FONT_SIZE,
+                                            self.FONT_COLOR,
+                                            self.BG_COLOR,
+                                            self.SCOREBOARD_POS,
+                                            self.level, self.score,
+                                            self.player.lives)
+        self.scoreboard.hide()
+
+        self.all_assets.extend([self.players, self.enemies, self.asteroids,
+                                self.shots, self.enemy_shots, self.scoreboard])
 
         self.background.fill(self.BG_COLOR)
         self.screen.blit(self.background, (0, 0))
@@ -351,7 +356,6 @@ class Main():
                                              self.player.mass)
         self.players.remove(self.player)
         self.player.lives -= 1
-        self.lives = self.player.lives
         self.player.alive = False
         self.player_hit_time = current_time
         self.players.add(self.dead_player)
@@ -373,7 +377,9 @@ class Main():
             pygame.sprite.collide_mask)
 
         for enemy, shot_list in enemies_shot_by_player.items():
-            self.score += int(self.BASE_SCORE * enemy.state)
+            score_gain = int(self.BASE_SCORE * enemy.state)
+            self.score += score_gain
+            self.extra_life_tracker += score_gain
             enemy.kill()
             self.enemy_spawned = False
             self.previous_enemy_spawn = current_time - self.ENEMY_OVERLAP_OFFSET
@@ -414,7 +420,9 @@ class Main():
         for asteroid, shot_list in shot_asteroids.items():
             for shot in shot_list:
                 if shot.id == 'player':
-                    self.score += int(self.BASE_SCORE / asteroid.state)
+                    score_gain = int(self.BASE_SCORE / asteroid.state)
+                    self.score += score_gain 
+                    self.extra_life_tracker += score_gain
                     break
 
             number_to_spawn = random.randint(self.MIN_BROKEN_ASTEROIDS,
@@ -424,6 +432,11 @@ class Main():
             if new_asteroids is not None:
                 self.asteroids.add(new_asteroids)
 
+    def _add_extra_life(self):
+        if self.extra_life_tracker >= self.EXTRA_LIFE_TARGET:
+            self.player.lives += 1
+            self.extra_life_tracker = self.extra_life_tracker % self.EXTRA_LIFE_TARGET
+                
     def _start_level_transition(self, current_time):
         self.level += 1
         self.shots.clear(self.screen, self.background)
@@ -523,6 +536,8 @@ class Main():
 
         self._check_asteroid_collisions()
 
+        self._add_extra_life()
+        
         if len(self.asteroids) == 0 and len(self.enemies) == 0:
             if self.asteroids_spawned:
                 self._start_level_transition(current_time)
@@ -541,7 +556,8 @@ class Main():
     def render(self, delta_time, *args, **kwargs):
         dirty_rects = utility.draw_all(self.all_assets, self.screen,
                                        self.background, delta_time,
-                                       self.score, self.level, self.lives,
+                                       self.score, self.level,
+                                       self.player.lives,
                                        player_rect=self.player.rect)
         pygame.display.update(dirty_rects)
 
