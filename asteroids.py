@@ -6,7 +6,7 @@ import random
 import pygame
 import game_state
 
-def main(): 
+def main():
     # initialise pygame
     pygame.init()
     width = 960
@@ -27,16 +27,16 @@ def main():
     padding = 5
 
     state_machine = game_state.StateMachine(screen, background,
-                                             bg_color, clock, fps, 
-                                             font_color, font_file, 
+                                             bg_color, clock, fps,
+                                             font_color, font_file,
                                              button_color, padding)
- 
+
     while still_running:
         still_running = state_machine.main_loop()
 
     pygame.quit()
     sys.exit()
- 
+
 
 if __name__ == '__main__':
     main()

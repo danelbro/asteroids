@@ -7,10 +7,10 @@ def load_image(name, folder_name, colorkey=None):
     """Utility function to load images.
 
     Args:
-        name (str): name of the image to be loaded 
+        name (str): name of the image to be loaded
         folder_name (str): name of the folder where the image is saved
-        colorkey (int, tuple, optional): Set to -1 to get colorkey from 
-        top left of image. Otherwise set to a tuple representing the color 
+        colorkey (int, tuple, optional): Set to -1 to get colorkey from
+        top left of image. Otherwise set to a tuple representing the color
         to be keyed. Defaults to None, use if you don't need a colorkey.
 
     Raises:
@@ -63,19 +63,19 @@ def draw_all(sprites, screen, background, *args, **kwargs):
             sprite_group.update(*args, **kwargs)
     return [dirty_rect for sprite_group in sprites
                        for dirty_rect in sprite_group.draw(screen)]
-    
+
 def thousands(n):
     return "{:,}".format(n)
 
 def normalize(x, x_min, x_max):
             return (x - x_min) / (x_max - x_min)
-        
+
 def lerp(min, max, t):
             return (1 - t) * min + t * max
-        
+
 def random_angle_vector(min_angle):
     direction = pygame.math.Vector2(0, 0)
-    while (math.fabs(direction.x) < min_angle and 
+    while (math.fabs(direction.x) < min_angle and
            math.fabs(direction.y) < min_angle):
         direction.x = random.uniform(-1.0, 1.0)
         direction.y = random.uniform(-1.0, 1.0)

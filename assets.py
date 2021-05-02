@@ -7,9 +7,9 @@ import utility
 
 
 class Player(pygame.sprite.Sprite):
-    """A class to represent a controllable spaceship. 
+    """A class to represent a controllable spaceship.
 
-    The player is a spaceship with a gun and a hyperspace drive. 
+    The player is a spaceship with a gun and a hyperspace drive.
     Subclass of pygame.sprite.Sprite.
     """
 
@@ -22,20 +22,20 @@ class Player(pygame.sprite.Sprite):
 
         Args:
             player_pos (tuple): initial position for the player
-            player_dir (tuple): initial direction that the player is 
+            player_dir (tuple): initial direction that the player is
             facing
             thrust_power (int): amount of force that thrusting adds
-            mass (int): mass of the spaceship, used for physics 
+            mass (int): mass of the spaceship, used for physics
             calculations
             turn_speed (int): degrees the spaceship turns by per frame
             fluid_density (float): used for calculating friction
             fire_rate (int): max amount of shots per second
             shot_power (int): speed of the bullets created by the gun
-            animation_speed (float): how fast the thrusting animation 
+            animation_speed (float): how fast the thrusting animation
             plays
-            folder_name (str): name of folder containing animation 
+            folder_name (str): name of folder containing animation
             frames
-            remains_alive (bool): whether a hyperspace jumps killed 
+            remains_alive (bool): whether a hyperspace jumps killed
             the player
         """
         super().__init__()
@@ -164,19 +164,19 @@ class Player(pygame.sprite.Sprite):
         """Causes the player to turn a particular amount this frame.
 
         Args:
-            turn_dir (int): positive 1 for left turn, 
+            turn_dir (int): positive 1 for left turn,
             negative 1 for right turn
         """
         self._turn_amount = self._turn_speed * turn_dir
 
     def hyperspace(self, number_of_asteroids):
-        """Moves the player to a random location. 
+        """Moves the player to a random location.
 
-        Sometimes kills the player; this is more likely if there are 
+        Sometimes kills the player; this is more likely if there are
         fewer asteroids on screen.
 
         Args:
-            number_of_asteroids (int): the amount of asteroids 
+            number_of_asteroids (int): the amount of asteroids
             currently on screen
         """
         # set up hyperspace jump
@@ -323,7 +323,7 @@ class Enemy(pygame.sprite.Sprite):
         self.speed = speed / state
         self.movement_direction = self.facing_direction.normalize()
         self.velocity = self.speed * self.movement_direction
-        self.gun = Gun(fire_rate * state, shot_power, 
+        self.gun = Gun(fire_rate * state, shot_power,
                        bullet_lifespan, 'enemy')
         self.area = pygame.display.get_surface().get_rect()
         self.primed = True
@@ -342,7 +342,7 @@ class Enemy(pygame.sprite.Sprite):
                     player_rect.y - self.rect.y
                 )
                 self.facing_direction = self.facing_direction.normalize()
-                
+
                 t = utility.normalize(score, 0, self.max_score)
                 rotate_amount = utility.lerp(self.max_inaccuracy_angle, 0, t)
                 negatizer = random.choice([-1, 1])
@@ -351,27 +351,27 @@ class Enemy(pygame.sprite.Sprite):
                 self.primed = False
         elif self.state == 2:
             self.facing_direction.rotate_ip(random.randint(0, 359))
-        
+
         self.time_since_last_dir_change += delta_time
         if self.time_since_last_dir_change > self.next_direction_change:
             self.movement_direction.rotate_ip(utility.random_angle(30, 65))
             self.movement_direction = self.movement_direction.normalize()
             self.time_since_last_dir_change = 0
             self.next_direction_change = random.uniform(0.5, 1.5)
-        
+
         velocity_vector = self.speed * self.movement_direction * delta_time
-    
+
         self.rect = _check_collide(self.rect.move(velocity_vector), self.area)
 
     @staticmethod
     def spawn(min_speed, max_speed, min_angle, player_pos, min_player_distance,
-              width, height, fire_rate, shot_power, bullet_lifespan, state, 
+              width, height, fire_rate, shot_power, bullet_lifespan, state,
               innacuracy_angle, max_difficulty_at_score):
         speed = random.randint(min_speed, max_speed)
         direction = utility.random_angle_vector(min_angle)
         position = utility.random_position(min_player_distance, width,
                                            height, player_pos)
-        
+
         switcher = random.randint(0,3)
         if switcher == 0:
             position.x = 0
@@ -381,9 +381,9 @@ class Enemy(pygame.sprite.Sprite):
             position.y = 0
         elif switcher == 3:
             position.y = height
-        
-        return Enemy(position, direction, speed, fire_rate, shot_power, 
-                     bullet_lifespan, state, innacuracy_angle, 
+
+        return Enemy(position, direction, speed, fire_rate, shot_power,
+                     bullet_lifespan, state, innacuracy_angle,
                      max_difficulty_at_score)
 
 
@@ -396,11 +396,11 @@ class Gun():
         self.id = id_
 
     def fire(self, current_time, shooter_rect, shot_direction):
-        """Creates a Shot if allowed by the gun's fire rate. 
+        """Creates a Shot if allowed by the gun's fire rate.
 
         Args:
-            current_time (int): 
-            lifespan (float): 
+            current_time (int):
+            lifespan (float):
 
         Returns:
             None: not enough time has passed since the last shot
@@ -417,7 +417,7 @@ class Gun():
 
 
 class Shot(pygame.sprite.Sprite):
-    """Class to represent a shot fired by the Player. 
+    """Class to represent a shot fired by the Player.
 
     Subclass of pygame.sprite.Sprite.
     """
@@ -426,9 +426,9 @@ class Shot(pygame.sprite.Sprite):
         """Constructs a Shot object.
 
         Args:
-            direction (pygame.math.Vector2): direction the shot will 
+            direction (pygame.math.Vector2): direction the shot will
             travel
-            initial_position (pygame.math.Vector2): where the shot 
+            initial_position (pygame.math.Vector2): where the shot
             starts
             power (int): the speed of the shot
             lifespan (float): how long in seconds the shot will last
@@ -472,7 +472,7 @@ class Shot(pygame.sprite.Sprite):
 
 
 class Asteroid(pygame.sprite.Sprite):
-    """Class to represent an Asteroid. 
+    """Class to represent an Asteroid.
 
     Subclass of pygame.sprite.Sprite.
     """
@@ -524,19 +524,19 @@ class Asteroid(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
     def hit(self, velocity_scale, number_to_spawn):
-        """Returns new asteroids if required. 
+        """Returns new asteroids if required.
 
         Spawns two new asteroids if the asteroid that got hit is large
         enough. If not, returns None.
 
         Args:
-            velocity_scale (float): how much faster the new asteroids 
+            velocity_scale (float): how much faster the new asteroids
             move than the parent asteroid.
 
         Returns:
-            list[Asteroid]: the two new asteroids, if the parent is 
+            list[Asteroid]: the two new asteroids, if the parent is
             large enough
-            None: this is already the smallest asteroid size, so no 
+            None: this is already the smallest asteroid size, so no
             child asteroids are created.
         """
         if self.state > 1:
@@ -614,9 +614,9 @@ class Asteroid(pygame.sprite.Sprite):
             max_speed (int): maximum speed for an asteroid
             min_angle (float): minimum magnitude for x and y on a unit
             circle to determine the angle of the asteroid's velocity
-            player_pos (pygame.Rect): the position of the player (to 
+            player_pos (pygame.Rect): the position of the player (to
             avoid on spawn)
-            min_player_distance (int): minimum distance from the 
+            min_player_distance (int): minimum distance from the
             player's position
             width (int): width of the screen
             height (int): height of the screen
@@ -629,7 +629,7 @@ class Asteroid(pygame.sprite.Sprite):
             speed = random.randint(min_speed, max_speed)
             direction = utility.random_angle_vector(min_angle)
             image_number = random.randint(0, 2)
-            position = utility.random_position(min_player_distance, width, 
+            position = utility.random_position(min_player_distance, width,
                                                height, player_rect)
 
             spin_amount = 0
@@ -668,7 +668,7 @@ class Title():
 
 
 class Scoreboard():
-    """Class that represents a scoreboard to be drawn. Shows level, 
+    """Class that represents a scoreboard to be drawn. Shows level,
     score and remaining lives.
     """
 
@@ -731,7 +731,7 @@ class Scoreboard():
     def update(self, delta_time, score, level, lives, *args, **kwargs):
         """Updates level or score.
 
-        Called every frame. Updates level or score if they are 
+        Called every frame. Updates level or score if they are
         different to those stored in the scoreboard.
 
         Args:
@@ -775,7 +775,7 @@ class Scoreboard():
 
         Args:
             screen (pygame.Surface): the screen the scoreboard is on
-            background (pygame.Surface): the background to draw over 
+            background (pygame.Surface): the background to draw over
             the scoreboard to erase it
 
         Returns:
@@ -807,9 +807,9 @@ class Scoreboard():
 
 
 class Highscores():
-    """A class to represent a list of highscores 
+    """A class to represent a list of highscores
 
-    Drawn to the screen after the game is over. 
+    Drawn to the screen after the game is over.
     """
 
     def __init__(self, new_score, font_file, font_size, font_color,
@@ -942,7 +942,7 @@ class Highscores():
 
 
 class Buttons():
-    """A class to represent a panel of buttons for a menu. 
+    """A class to represent a panel of buttons for a menu.
 
     Dynamically positions buttons based on number of labels requested.
     """
