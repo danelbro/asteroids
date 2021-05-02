@@ -280,8 +280,8 @@ class Main():
         self.asteroids = pygame.sprite.RenderUpdates()
         self.shots = pygame.sprite.RenderUpdates()
         self.enemy_shots = pygame.sprite.RenderUpdates()
- 
-        
+
+
         self.player = assets.Player(self.PLAYER_POS, self.PLAYER_DIR,
                                     self.PLAYER_THRUST, self.PLAYER_MASS,
                                     self.PLAYER_TURN_SPEED,
@@ -297,7 +297,7 @@ class Main():
                                     self.PLAYER_RESPAWN_TIME / 1000,
                                     self.PLAYER_BULLET_LIFESPAN)
         self.players.add(self.player)
- 
+
         self.scoreboard = assets.Scoreboard(self.FONT_FILE,
                                             self.SCOREBOARD_FONT_SIZE,
                                             self.FONT_COLOR,
@@ -431,7 +431,7 @@ class Main():
             for shot in shot_list:
                 if shot.id == 'player':
                     score_gain = int(self.BASE_SCORE / asteroid.state)
-                    self.score += score_gain 
+                    self.score += score_gain
                     self.extra_life_tracker += score_gain
                     break
 
@@ -446,7 +446,7 @@ class Main():
         if self.extra_life_tracker >= self.EXTRA_LIFE_TARGET:
             self.player.lives += 1
             self.extra_life_tracker = self.extra_life_tracker % self.EXTRA_LIFE_TARGET
-                
+
     def _start_level_transition(self, current_time):
         self.level += 1
         self.shots.clear(self.screen, self.background)
@@ -540,7 +540,7 @@ class Main():
             and (current_time - self.player_hit_time
                  >= self.PLAYER_DEATH_TIMER)):
             self._respawn_player()
-            
+
         self._shoot_enemies(current_time)
 
         if (not self.enemy_spawned
@@ -551,7 +551,7 @@ class Main():
         self._check_asteroid_collisions()
 
         self._add_extra_life()
-        
+
         if len(self.asteroids) == 0 and len(self.enemies) == 0:
             if self.asteroids_spawned:
                 self._start_level_transition(current_time)
@@ -596,7 +596,7 @@ class End():
         self.level = level
         self.dirty_rects = []
         self.all_assets = []
-        
+
         self.heading = assets.Title('Game Over', self.FONT_FILE, 42,
                                     self.FONT_COLOR,
                                     (self.screen.get_rect().centerx,
@@ -605,7 +605,7 @@ class End():
         self.score_heading_y_pos = (self.heading_y_pos
                                     + self.heading.height
                                     + self.PADDING)
-        
+
         self.score_heading = assets.Title(
             ('Score: ' + str(utility.thousands(self.score))),
             self.FONT_FILE, 36, self.FONT_COLOR,
@@ -634,7 +634,7 @@ class End():
 
         self.buttons_panel.y_pos = self.buttons_y_pos
         self.buttons_panel.reposition()
-        
+
         self.TIME_TO_START = 1000
         self.all_assets.extend(asset_list)
         self.menu_showing = False
@@ -665,11 +665,11 @@ class End():
                             break
                         elif button['label'] == 'Quit':
                             input_dict['next_state'] = None
-        return input_dict    
+        return input_dict
 
     def update(self, input_dict, delta_time, *args, **kwargs):
         current_time = pygame.time.get_ticks()
-        
+
         if (not self.menu_showing and
             current_time - self.start_time >= self.TIME_TO_START):
             self.menu_showing = True
@@ -687,4 +687,3 @@ class End():
                                             self.score, self.level,
                                             self.lives)
         pygame.display.update(self.dirty_rects)
-
