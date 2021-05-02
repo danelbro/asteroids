@@ -41,7 +41,8 @@ class StateMachine():
                                                     self.padding,
                                                     self.screen,
                                                     self.background,
-                                                    self.bg_color),
+                                                    self.bg_color,
+                                                    self),
                             GameStates.OPTIONS: Options(),
                             GameStates.MAIN: Main(self.font_file,
                                                   self.font_color,
@@ -49,8 +50,16 @@ class StateMachine():
                                                   self.padding,
                                                   self.screen,
                                                   self.background,
-                                                  self.bg_color),
-                            GameStates.END: End()}
+                                                  self.bg_color,
+                                                  self),
+                            GameStates.END: End(self.font_file,
+                                                self.font_color,
+                                                self.button_color,
+                                                self.padding,
+                                                self.screen,
+                                                self.background,
+                                                self.bg_color,
+                                                self)}
         self.current_state = GameStates.INTRO
 
     def main_loop(self):
@@ -70,34 +79,36 @@ class StateMachine():
 
 class Intro():
     def __init__(self, font_file, font_color, button_color, padding,
-                 screen, background, bg_color):
+                 screen, background, bg_color, state_machine):
         self.screen = screen
         self.background = background
-        self.bg_color = bg_color
-        self.font_file = font_file
-        self.font_color = font_color
-        self.button_color = button_color
-        self.padding = padding
         self.seen = False
+        self.state_machine = state_machine
+
+        self.BG_COLOR = bg_color
+        self.FONT_FILE = font_file
+        self.FONT_COLOR = font_color
+        self.BUTTON_COLOR = button_color
+        self.PADDING = padding
 
         self.title_y_pos = self.screen.get_rect().centery
         self.title = assets.Title('Asteroids',
-                                  self.font_file, 52,
-                                  self.font_color,
+                                  self.FONT_FILE, 52,
+                                  self.FONT_COLOR,
                                   (self.screen.get_rect().centerx,
                                    self.title_y_pos))
 
-        self.buttons_panel = assets.Buttons(self.font_file, 28,
-                                            self.font_color,
-                                            self.button_color,
+        self.buttons_panel = assets.Buttons(self.FONT_FILE, 28,
+                                            self.FONT_COLOR,
+                                            self.BUTTON_COLOR,
                                             screen.get_rect().centerx, 0,
-                                            padding,
+                                            self.PADDING,
                                             'New Game',
                                             'Options',
                                             'Quit')
 
         self.buttons_y_pos = (self.screen.get_height()
-                              - (self.padding * 4)
+                              - (self.PADDING * 4)
                               - self.buttons_panel.height)
 
         self.buttons_panel.y_pos = self.buttons_y_pos
@@ -105,7 +116,7 @@ class Intro():
         self.all_assets = [self.title, self.buttons_panel]
 
     def _first_render(self):
-        self.background.fill(self.bg_color)
+        self.background.fill(self.BG_COLOR)
         self.screen.blit(self.background, (0, 0))
         pygame.display.update()
         self.seen = True
@@ -126,16 +137,14 @@ class Intro():
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
                 for button in self.buttons_panel.buttons:
-                    if button['label'] == 'New Game':
-                        if button['button_rect'].collidepoint(mouse_pos):
+                    if button['button_rect'].collidepoint(mouse_pos):
+                        if button['label'] == 'New Game':
                             input_dict['next_state'] = GameStates.MAIN
                             break
-                    elif button['label'] == 'Options':
-                        if button['button_rect'].collidepoint(mouse_pos):
+                        elif button['label'] == 'Options':
                             input_dict['next_state'] = GameStates.OPTIONS
                             break
-                    elif button['label'] == 'Quit':
-                        if button['button_rect'].collidepoint(mouse_pos):
+                        elif button['label'] == 'Quit':
                             input_dict['next_state'] = None
                             break
         return input_dict
@@ -169,7 +178,7 @@ class Options():
 
 class Main():
     def __init__(self, font_file, font_color, button_color, padding,
-                 screen, background, bg_color):
+                 screen, background, bg_color, state_machine):
         # general
         self.FONT_FILE = font_file
         self.FONT_COLOR = font_color
@@ -186,6 +195,7 @@ class Main():
         self.background = background
         self.all_assets = []
         self.seen = False
+        self.state_machine = state_machine
 
         self.config = configparser.ConfigParser()
         self.config.read('config.ini')
@@ -256,9 +266,9 @@ class Main():
     def _first_render(self):
         self.score = 0
         self.extra_life_tracker = 0
+        self.player_out_of_lives = False
         self.level = 1
         self.player_alive = True
-        self.player_out_of_lives = False
         self.asteroids_spawned = False
         self.player_hit_time = 0
         self.previous_enemy_spawn = 0
@@ -521,12 +531,16 @@ class Main():
             if len(colliding_things) > 0 or not self.player.remains_alive:
                 self.player_out_of_lives = self._kill_player(current_time)
 
+        if self.player_out_of_lives:
+            input_dict['next_state'] = GameStates.END
+            self.state_machine.states_dict[GameStates.END].setup(
+                50, self.score, self.player.lives, self.level, self.all_assets)
         if (not self.player.alive
             and not self.player_out_of_lives
             and (current_time - self.player_hit_time
                  >= self.PLAYER_DEATH_TIMER)):
             self._respawn_player()
-
+            
         self._shoot_enemies(current_time)
 
         if (not self.enemy_spawned
@@ -563,112 +577,114 @@ class Main():
 
 
 class End():
+    def __init__(self, font_file, font_color, button_color, padding,
+                 screen, background, bg_color, state_machine):
+        self.FONT_FILE = font_file
+        self.FONT_COLOR = font_color
+        self.BUTTON_COLOR = button_color
+        self.PADDING = padding
+        self.BG_COLOR = bg_color
+
+        self.screen = screen
+        self.background = background
+        self.state_machine = state_machine
+
+    def setup(self, text_pos, score, lives, level, asset_list):
+        self.heading_y_pos = text_pos
+        self.score = score
+        self.lives = lives
+        self.level = level
+        self.dirty_rects = []
+        self.all_assets = []
+        
+        self.heading = assets.Title('Game Over', self.FONT_FILE, 42,
+                                    self.FONT_COLOR,
+                                    (self.screen.get_rect().centerx,
+                                     self.heading_y_pos))
+
+        self.score_heading_y_pos = (self.heading_y_pos
+                                    + self.heading.height
+                                    + self.PADDING)
+        
+        self.score_heading = assets.Title(
+            ('Score: ' + str(utility.thousands(self.score))),
+            self.FONT_FILE, 36, self.FONT_COLOR,
+            (self.screen.get_rect().centerx,
+             self.score_heading_y_pos))
+
+        self.highscores_y_pos = (self.score_heading_y_pos
+                                 + self.score_heading.height
+                                 + self.PADDING)
+
+        self.highscores = assets.Highscores(self.score, self.FONT_FILE, 36,
+                                            self.FONT_COLOR,
+                                            self.screen.get_rect().centerx,
+                                            self.highscores_y_pos,
+                                            self.PADDING, self.BUTTON_COLOR)
+
+        self.buttons_panel = assets.Buttons(self.FONT_FILE, 28,
+                                            self.FONT_COLOR,
+                                            self.BUTTON_COLOR,
+                                            self.screen.get_rect().centerx,
+                                            0, self.PADDING, 'New Game',
+                                            'Main Menu', 'Quit')
+
+        self.buttons_y_pos = (self.screen.get_height()
+                              - (self.PADDING * 4) - self.buttons_panel.height)
+
+        self.buttons_panel.y_pos = self.buttons_y_pos
+        self.buttons_panel.reposition()
+        
+        self.TIME_TO_START = 1000
+        self.all_assets.extend(asset_list)
+        self.menu_showing = False
+        self.start_time = pygame.time.get_ticks()
+
     def get_input(self):
-        pass
-
-    def update(self, *args, **kwargs):
-        pass
-
-    def render(self):
-        pass
-
-
-"""The game over screen.
-
-Presents a message, score, list of top 5 highscores, and a
-menu to the player. If the score is higher than one of the
-presented highscores, ask the player to enter their name to
- save their highscore. The menu has buttons to start a new game,
-  return to the main menu, or quit.
-
-   Returns:
-        str: a new game state
-        None: the player quit the game.
-    """
-""" text_pos = 50
-    padding = 5
-
-    heading_y_pos = text_pos
-    heading = assets.Title('Game Over', self.font_file, 42,
-                           self.font_color,
-                           (self.screen.get_rect().centerx,
-                            heading_y_pos))
-
-    score_heading_y_pos = heading_y_pos + heading.height + padding
-
-    score_heading = assets.Title(('Score: '
-                                  + str(utility.thousands(self.score))),
-                                 self.font_file, 36, self.font_color,
-                                 (self.screen.get_rect().centerx,
-                                  score_heading_y_pos))
-
-    highscores_y_pos = (score_heading_y_pos
-                        + score_heading.height
-                        + padding)
-
-    highscores = assets.Highscores(self.score, self.font_file, 36,
-                                   self.font_color,
-                                   self.screen.get_rect().centerx,
-                                   highscores_y_pos, padding, self.button_color)
-
-    buttons_panel = assets.Buttons(self.font_file, 28, self.font_color,
-                                   self.button_color,
-                                   self.screen.get_rect().centerx, 0,
-                                   padding, 'New Game', 'Main Menu', 'Quit')
-
-    buttons_y_pos = (self.screen.get_height()
-                     - (padding * 4)
-                     - buttons_panel.height)
-
-    buttons_panel.y_pos = buttons_y_pos
-    buttons_panel.reposition()
-
-    time_to_start = 1000
-    menu_showing = False
-    start_time = pygame.time.get_ticks()
-
-    while True:
-        self.clock.tick(self.fps)
-        current_time = pygame.time.get_ticks()
-        delta_time = self.clock.get_time() / 1000
-
+        input_dict = {'next_state': GameStates.END}
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return None
+                input_dict['next_state'] = None
+                break
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.allsprites.clear()
-                    return None
+                    input_dict['next_state'] = None
+                    break
                 if event.key == pygame.K_RETURN:
-                    self.allsprites.clear()
-                    return 'main'
+                    input_dict['next_state'] = GameStates.MAIN
+                    break
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
-                for button in buttons_panel.buttons:
-                    if button['label'] == 'New Game':
-                        if button['button_rect'].collidepoint(mouse_pos):
-                            self.allsprites.clear()
-                            return 'main'
-                    elif button['label'] == 'Main Menu':
-                        if button['button_rect'].collidepoint(mouse_pos):
-                            self.allsprites.clear()
-                            return 'intro'
-                    elif button['label'] == 'Quit':
-                        if button['button_rect'].collidepoint(mouse_pos):
-                            return None
+                for button in self.buttons_panel.buttons:
+                    if button['button_rect'].collidepoint(mouse_pos):
+                        if button['label'] == 'New Game':
+                            input_dict['next_state'] = GameStates.MAIN
+                            break
+                        elif button['label'] == 'Main Menu':
+                            input_dict['next_state'] = GameStates.INTRO
+                            break
+                        elif button['label'] == 'Quit':
+                            input_dict['next_state'] = None
+        return input_dict    
 
-        dirty_rects = utility.draw_all(self.allsprites, self.screen,
-                                       self.background, delta_time,
-                                       self.score, self.level, self.lives)
+    def update(self, input_dict, delta_time, *args, **kwargs):
+        current_time = pygame.time.get_ticks()
+        
+        if (not self.menu_showing and
+            current_time - self.start_time >= self.TIME_TO_START):
+            self.menu_showing = True
+            scoreboard = self.all_assets.pop()
+            self.dirty_rects.extend(scoreboard.clear(self.screen,
+                                                     self.background))
+            self.all_assets.extend([self.heading, self.score_heading,
+                                    self.highscores, self.buttons_panel])
 
-        if (not menu_showing and
-                current_time - start_time >= time_to_start):
-            menu_showing = True
-            scoreboard = self.allsprites.pop()
-            dirty_rects.extend(scoreboard.clear(self.screen,
-                                                self.background))
-            self.allsprites.extend([heading, score_heading,
-                                    highscores, buttons_panel])
+        return input_dict['next_state']
 
-        pygame.display.update(dirty_rects)
-"""
+    def render(self, delta_time, *args, **kwargs):
+        self.dirty_rects = utility.draw_all(self.all_assets, self.screen,
+                                            self.background, delta_time,
+                                            self.score, self.level,
+                                            self.lives)
+        pygame.display.update(self.dirty_rects)
+
