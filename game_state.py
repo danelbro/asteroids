@@ -104,6 +104,7 @@ class Intro():
                                             screen.get_rect().centerx, 0,
                                             self.PADDING,
                                             'New Game',
+                                            'Controls',
                                             'Options',
                                             'Quit')
 
