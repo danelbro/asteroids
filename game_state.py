@@ -15,6 +15,45 @@ class GameStates(enum.Enum):
     END = enum.auto()
 
 
+class MusicHandler():
+    def __init__(self, low_channel, high_channel, volume, initial_time, rate):
+        self.low_sound = utility.load_sound('heart_low.wav')
+        self.high_sound = utility.load_sound('heart_high.wav')
+        self.low_channel = low_channel
+        self.high_channel = high_channel
+        self.low_channel.set_volume(volume)
+        self.high_channel.set_volume(volume)
+        self.initial_time = initial_time 
+        self.rate = rate
+        self.fastest_time = self._determine_smallest_rate()
+        self.time = self.initial_time
+        self.last_played_time = 0
+        self.last_played_sound = self.low_sound
+
+    def _determine_smallest_rate(self):
+        first_length = self.low_sound.get_length()
+        second_length = self.high_sound.get_length()
+        return max(first_length, second_length)
+        
+    def _determine_sound(self):
+        if self.last_played_sound == self.low_sound:
+            return self.high_sound, self.high_channel
+        return self.low_sound, self.low_channel
+
+    def reset(self):
+        self.time = self.initial_time
+        self.last_played_sound = self.low_sound
+
+    def play(self, current_time):
+        if current_time < self.last_played_time + self.time:
+            return None
+        self.last_played_time = current_time
+        next_sound, next_channel = self._determine_sound()
+        next_channel.play(next_sound)
+        self.last_played_sound = next_sound
+        self.time = max(self.fastest_time, self.time - self.rate)
+
+
 class StateMachine():
     """A class to control the game state, containing functions for
     different game states.
@@ -204,6 +243,7 @@ class Main():
         player_config = self.config['PLAYER']
         enemy_config = self.config['ENEMY']
         asteroid_config = self.config['ASTEROID']
+        music_config = self.config['MUSIC']
 
         # player
         self.player_remains_alive = True
@@ -265,6 +305,16 @@ class Main():
             asteroid_config['max_broken_asteroids'])
         self.MAX_NEW_ASTEROIDS = int(asteroid_config['max_new_asteroids'])
 
+        # music
+        self.MUSIC_VOLUME = float(music_config['volume'])
+        self.MUSIC_GAP = int(music_config['gap'])
+        self.MUSIC_RATE = int(music_config['rate'])
+        self.music_handler = MusicHandler(self.channels['heart_low'],
+                                          self.channels['heart_high'],
+                                          self.MUSIC_VOLUME,
+                                          self.MUSIC_GAP,
+                                          self.MUSIC_RATE)
+
     def _first_render(self):
         self.score = 0
         self.extra_life_tracker = 0
@@ -321,6 +371,7 @@ class Main():
         self.level_start_time = (pygame.time.get_ticks()
                                  + self.LEVEL_TRANSITION_TIME)
         self.previous_enemy_spawn = self.level_start_time
+        self._level_started = False
         self.player_has_control = True
         self.player_is_vulnerable = True
         self.seen = True
@@ -468,9 +519,11 @@ class Main():
                             self.screen.get_rect().center,
                             reset=False)
         self.asteroids_spawned = False
+        self._level_started = False
 
     def _start_next_level(self):
         self.scoreboard.show()
+        self.music_handler.reset()
         asteroid_number = min(
             self.MAX_NEW_ASTEROIDS, self.level + self.LEVEL_ASTEROIDS_OFFSET)
         ast_list = assets.Asteroid.spawn(asteroid_number,
@@ -484,6 +537,7 @@ class Main():
                                          self.channels['explosion_asteroid'])
         self.asteroids.add(ast_list)
         self.asteroids_spawned = True
+        self._level_started = True
 
     def _enemy_fire(self, current_time):
         for enemy in self.enemies.sprites():
@@ -527,8 +581,12 @@ class Main():
     def update(self, input_dict, delta_time, *args, **kwargs):
         if not self.seen:
             self._first_render()
+
         current_time = pygame.time.get_ticks()
 
+        if self._level_started:
+            self.music_handler.play(current_time)
+        
         self._handle_input(input_dict, self.player_has_control, current_time)
 
         self.player_has_control = (self.player.alive

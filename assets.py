@@ -435,14 +435,13 @@ class Gun():
         """
         if current_time < self._last_shot_time + self._fire_rate:
             return None
-        elif current_time >= self._last_shot_time + self._fire_rate:
-            self._last_shot_time = current_time
-            spawn_point = (self.owner.rect.center
-                           + (self.owner.facing_direction
-                              * (self.owner.rect.height / 2)))
-            self.shot_channel.play(self.shot_sound)
-            return Shot(self.owner.facing_direction, spawn_point,
-                        self._shot_power, self._bullet_lifespan, self.owner) 
+        self._last_shot_time = current_time
+        spawn_point = (self.owner.rect.center
+                       + (self.owner.facing_direction
+                          * (self.owner.rect.height / 2)))
+        self.shot_channel.play(self.shot_sound)
+        return Shot(self.owner.facing_direction, spawn_point,
+                    self._shot_power, self._bullet_lifespan, self.owner) 
 
 
 class Shot(pygame.sprite.Sprite):
