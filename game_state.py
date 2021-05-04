@@ -25,11 +25,10 @@ class MusicHandler():
         self.high_channel.set_volume(volume)
         self.initial_time = initial_time 
         self.rate = rate
-        self.count = 1000 / self.initial_time 
         self.fastest_time = self._determine_fastest_time()
-        self.time = self.initial_time
         self.last_played_time = 0
         self.last_played_sound = self.low_sound
+        self.reset()
 
     def _determine_fastest_time(self):
         first_length = self.low_sound.get_length()
@@ -43,7 +42,7 @@ class MusicHandler():
 
     def reset(self):
         self.time = self.initial_time
-        self.last_played_sound = self.low_sound
+        self.count = 1000 / self.time
 
     def play(self, current_time):
         if current_time < self.last_played_time + self.time:
