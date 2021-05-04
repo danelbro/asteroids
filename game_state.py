@@ -321,6 +321,8 @@ class Main():
         self.level_start_time = (pygame.time.get_ticks()
                                  + self.LEVEL_TRANSITION_TIME)
         self.previous_enemy_spawn = self.level_start_time
+        self.player_has_control = True
+        self.player_is_vulnerable = True
         self.seen = True
 
     def _prepare_next_state(self):
@@ -526,14 +528,15 @@ class Main():
         if not self.seen:
             self._first_render()
         current_time = pygame.time.get_ticks()
-        player_has_control = (self.player.alive
-                              and not self.player.in_hyperspace)
-        player_is_vulnerable = (player_has_control
-                                and not self.player.respawning)
 
-        self._handle_input(input_dict, player_has_control, current_time)
+        self._handle_input(input_dict, self.player_has_control, current_time)
 
-        if player_is_vulnerable:
+        self.player_has_control = (self.player.alive
+                                   and not self.player.in_hyperspace)
+        self.player_is_vulnerable = (self.player_has_control
+                                     and not self.player.respawning)
+
+        if self.player_is_vulnerable:
             colliding_things = self._check_player_collisions()
             if len(colliding_things) > 0 or not self.player.remains_alive:
                 self.player_out_of_lives = self._kill_player(current_time)
