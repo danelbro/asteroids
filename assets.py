@@ -165,7 +165,8 @@ class Player(pygame.sprite.Sprite):
         """
         self._acceleration_magnitude = self._thrust_power
         self._thrusting = True
-        self.thrust_channel.queue(self.thrust_sound)
+        if not self.thrust_channel.get_busy():
+            self.thrust_channel.play(self.thrust_sound)
 
     def engine_off(self):
         """Cancels thrusting animation

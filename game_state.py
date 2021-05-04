@@ -425,7 +425,7 @@ class Main():
         self.players.remove(self.player)
         self.player.lives -= 1
         self.player.alive = False
-        self.player.thrust_channel.stop()
+        self.player.engine_off()
         self.player_hit_time = current_time
         self.players.add(self.dead_player)
         if self.player.lives < 1:
@@ -546,6 +546,15 @@ class Main():
                 if enemy_shot is not None:
                     self.enemy_shots.add(enemy_shot)
 
+    def _check_player_control(self):
+        self.player_has_control = (self.player.alive
+                                   and not self.player.in_hyperspace)
+
+    def _check_player_vulnerability(self):
+        self._check_player_control()
+        self.player_is_vulnerable = (self.player_has_control
+                                     and not self.player.respawning)
+
     def get_input(self):
         input_dict = {'next_state': GameStates.MAIN,
                       'player_hyperspace': False,
@@ -586,14 +595,11 @@ class Main():
 
         if self._level_started:
             self.music_handler.play(current_time)
-        
+
+        self._check_player_control()
         self._handle_input(input_dict, self.player_has_control, current_time)
 
-        self.player_has_control = (self.player.alive
-                                   and not self.player.in_hyperspace)
-        self.player_is_vulnerable = (self.player_has_control
-                                     and not self.player.respawning)
-
+        self._check_player_vulnerability()
         if self.player_is_vulnerable:
             colliding_things = self._check_player_collisions()
             if len(colliding_things) > 0 or not self.player.remains_alive:
@@ -603,6 +609,7 @@ class Main():
             input_dict['next_state'] = GameStates.END
             self.state_machine.states_dict[GameStates.END].setup(
                 50, self.score, self.player.lives, self.level, self.all_assets)
+
         if (not self.player.alive
             and not self.player_out_of_lives
             and (current_time - self.player_hit_time
