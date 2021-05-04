@@ -4,7 +4,11 @@ import random
 import re
 import math
 import utility
+import enum
 
+class EnemyStates(enum.Enum):
+    SMALL = 1
+    BIG = 2
 
 class Player(pygame.sprite.Sprite):
     """A class to represent a controllable spaceship.
@@ -17,7 +21,8 @@ class Player(pygame.sprite.Sprite):
                  mass, turn_speed, fluid_density, fire_rate,
                  shot_power, thrust_animation_speed, folder_name,
                  remains_alive, hyperspace_length, bg_color, lives,
-                 flash_speed, respawn_length, bullet_lifespan):
+                 flash_speed, respawn_length, bullet_lifespan,
+                 thrust_channel, hyperspace_channel, shot_channel):
         """Constructs a Player object.
 
         Args:
@@ -72,13 +77,18 @@ class Player(pygame.sprite.Sprite):
         self._fluid_density = fluid_density
         self._acceleration_magnitude = 0
         self._turn_amount = 0
-        self.gun = Gun(fire_rate, shot_power, bullet_lifespan, 'player')
-
+        self.gun = Gun(fire_rate, shot_power, bullet_lifespan, self, shot_channel)
         self.remains_alive = remains_alive
         self._hyperspace_length = hyperspace_length
         self._hyperspace_duration = 0
         self.in_hyperspace = False
         self.bg_color = bg_color
+
+        # sounds
+        self.hyperspace_sound = utility.load_sound('hyperspace_player.wav')
+        self.thrust_sound = utility.load_sound('thrust_player.wav')
+        self.thrust_channel = thrust_channel
+        self.hyperspace_channel = hyperspace_channel
 
         # facing_direction is where thrust is applied
         # velocity_direction determines how drag will be applied
@@ -148,17 +158,20 @@ class Player(pygame.sprite.Sprite):
         self._respawn_length = respawn_length
         if reset:
             self._reset(new_pos)
+            self.remains_alive = True
 
     def engine_on(self):
         """Causes thrust to be applied on this frame
         """
         self._acceleration_magnitude = self._thrust_power
         self._thrusting = True
+        self.thrust_channel.queue(self.thrust_sound)
 
     def engine_off(self):
         """Cancels thrusting animation
         """
         self._thrusting = False
+        self.thrust_channel.stop()
 
     def turn(self, turn_dir):
         """Causes the player to turn a particular amount this frame.
@@ -184,6 +197,7 @@ class Player(pygame.sprite.Sprite):
         self.velocity.update(0, 0)
         self._hyperspace_duration = 0
         self._thrusting = 0
+        self.hyperspace_channel.play(self.hyperspace_sound)
 
         # move player
         self.rect.center = (random.randint(0, self._area.width),
@@ -252,7 +266,8 @@ class DeadPlayer(pygame.sprite.Sprite):
     """Class to represent the Player after they have been killed."""
 
     def __init__(self, folder_name, animation_speed, pos, direction,
-                 velocity, velocity_direction, fluid_density, mass):
+                 velocity, velocity_direction, fluid_density, mass,
+                 explosion_channel):
         super().__init__()
         self._images = []
         folder = os.path.join('data', 'sprites', folder_name)
@@ -273,6 +288,9 @@ class DeadPlayer(pygame.sprite.Sprite):
         self._fluid_density = fluid_density
         self.mass = mass
         self._area = pygame.display.get_surface().get_rect()
+        self.explosion_sound = utility.load_sound('explosion_player.wav')
+        self.explosion_channel = explosion_channel 
+        self.explosion_channel.play(self.explosion_sound)
 
     def update(self, delta_time, *args, **kwargs):
         self._image_counter += self._animation_speed * delta_time
@@ -312,30 +330,33 @@ class DeadPlayer(pygame.sprite.Sprite):
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, spawn_position, initial_dir, speed,
                  fire_rate, shot_power, bullet_lifespan, state,
-                 max_inaccuracy_angle, max_score):
+                 max_inaccuracy_angle, max_score, shot_channel,
+                 explosion_channel):
         super().__init__()
         folder_name = os.path.join('data', 'sprites', 'enemy')
-        self.image = utility.load_image(f'enemy-{state}.png', folder_name, -1)
+        self.image = utility.load_image(f'enemy-{state.value}.png', folder_name, -1)
         self.state = state
         self.rect = self.image.get_rect(center=spawn_position)
         self.mask = pygame.mask.from_surface(self.image)
         self.facing_direction = pygame.math.Vector2(initial_dir).normalize()
-        self.speed = speed / state
+        self.speed = speed / state.value
         self.movement_direction = self.facing_direction.normalize()
         self.velocity = self.speed * self.movement_direction
-        self.gun = Gun(fire_rate * state, shot_power,
-                       bullet_lifespan, 'enemy')
+        self.gun = Gun(fire_rate * state.value, shot_power, bullet_lifespan,
+                       self, shot_channel) 
         self.area = pygame.display.get_surface().get_rect()
         self.primed = True
         self.time_since_last_dir_change = 0
         self.next_direction_change = random.randint(1,3)
-        if self.state == 1:
+        self.explosion_channel = explosion_channel
+        self.explosion_sound = utility.load_sound('explosion_enemy.wav')
+        if self.state == EnemyStates.SMALL:
             self.max_inaccuracy_angle = max_inaccuracy_angle
             self.max_score = max_score
 
     def update(self, delta_time, score, *args, **kwargs):
         player_rect = kwargs.get('player_rect')
-        if self.state == 1:
+        if self.state == EnemyStates.SMALL:
             if player_rect is not None:
                 self.facing_direction.update(
                     player_rect.x - self.rect.x,
@@ -349,7 +370,7 @@ class Enemy(pygame.sprite.Sprite):
                 self.facing_direction.rotate_ip(rotate_amount * negatizer)
             else:
                 self.primed = False
-        elif self.state == 2:
+        elif self.state == EnemyStates.BIG:
             self.facing_direction.rotate_ip(random.randint(0, 359))
 
         self.time_since_last_dir_change += delta_time
@@ -366,7 +387,8 @@ class Enemy(pygame.sprite.Sprite):
     @staticmethod
     def spawn(min_speed, max_speed, min_angle, player_pos, min_player_distance,
               width, height, fire_rate, shot_power, bullet_lifespan, state,
-              innacuracy_angle, max_difficulty_at_score):
+              innacuracy_angle, max_difficulty_at_score, shot_channel,
+              explosion_channel):
         speed = random.randint(min_speed, max_speed)
         direction = utility.random_angle_vector(min_angle)
         position = utility.random_position(min_player_distance, width,
@@ -384,18 +406,23 @@ class Enemy(pygame.sprite.Sprite):
 
         return Enemy(position, direction, speed, fire_rate, shot_power,
                      bullet_lifespan, state, innacuracy_angle,
-                     max_difficulty_at_score)
+                     max_difficulty_at_score, shot_channel, explosion_channel)
 
 
 class Gun():
-    def __init__(self, fire_rate, shot_power, lifespan, id_):
+    def __init__(self, fire_rate, shot_power, lifespan, owner, shot_channel):
         self._fire_rate = fire_rate
         self._shot_power = shot_power
         self._last_shot_time = 0
         self._bullet_lifespan = lifespan
-        self.id = id_
+        self.owner = owner
+        self.shot_channel = shot_channel
+        if isinstance(self.owner, Player):
+            self.shot_sound = utility.load_sound('shoot_player.wav')
+        elif isinstance(self.owner, Enemy):
+            self.shot_sound = utility.load_sound('shoot_enemy.wav')
 
-    def fire(self, current_time, shooter_rect, shot_direction):
+    def fire(self, current_time) :
         """Creates a Shot if allowed by the gun's fire rate.
 
         Args:
@@ -410,10 +437,12 @@ class Gun():
             return None
         elif current_time >= self._last_shot_time + self._fire_rate:
             self._last_shot_time = current_time
-            spawn_point = shooter_rect.center + (shot_direction
-                                                 * (shooter_rect.height / 2))
-            return Shot(shot_direction, spawn_point,
-                        self._shot_power, self._bullet_lifespan, self.id)
+            spawn_point = (self.owner.rect.center
+                           + (self.owner.facing_direction
+                              * (self.owner.rect.height / 2)))
+            self.shot_channel.play(self.shot_sound)
+            return Shot(self.owner.facing_direction, spawn_point,
+                        self._shot_power, self._bullet_lifespan, self.owner) 
 
 
 class Shot(pygame.sprite.Sprite):
@@ -422,7 +451,7 @@ class Shot(pygame.sprite.Sprite):
     Subclass of pygame.sprite.Sprite.
     """
 
-    def __init__(self, direction, initial_position, power, lifespan, id_):
+    def __init__(self, direction, initial_position, power, lifespan, owner):
         """Constructs a Shot object.
 
         Args:
@@ -446,8 +475,8 @@ class Shot(pygame.sprite.Sprite):
         self.velocity = power * self._direction
         self._lifetime = 0.0
         self._lifespan = lifespan
-        self.id = id_
-
+        self.owner = owner
+        
     def update(self, delta_time, *args, **kwargs):
         """Called every frame to move the shot
 
@@ -478,7 +507,8 @@ class Asteroid(pygame.sprite.Sprite):
     """
 
     def __init__(self, velocity, direction, image_number,
-                 spin_amount, pos=None, state=3):
+                 spin_amount, pos=None, explosion_channel=None,
+                 state=3):
         super().__init__()
         self.state = state
         folder = os.path.join('data', 'sprites', 'asteroid')
@@ -497,6 +527,9 @@ class Asteroid(pygame.sprite.Sprite):
 
         self.velocity = velocity
         self._direction = direction.normalize()
+        self.explosion_channel = explosion_channel 
+        self.explosion_sound = utility.load_sound('explosion_asteroid.wav')
+        self.explosion_sound.set_volume(0.5)
 
     def update(self, delta_time, *args, **kwargs):
         """Called every frame to move the asteroid.
@@ -539,6 +572,7 @@ class Asteroid(pygame.sprite.Sprite):
             None: this is already the smallest asteroid size, so no
             child asteroids are created.
         """
+        self.explosion_channel.play(self.explosion_sound)
         if self.state > 1:
             new_list = []
             rotation = 0
@@ -567,17 +601,19 @@ class Asteroid(pygame.sprite.Sprite):
 
                 reflect = rotation * (i + 1)
 
-                new_asteroid_1 = Asteroid(
-                    new_velocity,
-                    self._direction.rotate(reflect), first_image_number,
-                    self._spin_amount, self.rect.center, state
-                )
+                new_asteroid_1 = Asteroid(new_velocity,
+                                          self._direction.rotate(reflect),
+                                          first_image_number,
+                                          self._spin_amount,
+                                          self.rect.center,
+                                          self.explosion_channel, state)
 
-                new_asteroid_2 = Asteroid(
-                    new_velocity,
-                    self._direction.rotate(-reflect), second_image_number,
-                    self._spin_amount, self.rect.center, state
-                )
+                new_asteroid_2 = Asteroid(new_velocity,
+                                          self._direction.rotate(-reflect),
+                                          second_image_number,
+                                          self._spin_amount,
+                                          self.rect.center,
+                                          self.explosion_channel, state)
 
                 new_list.extend([new_asteroid_1, new_asteroid_2])
 
@@ -605,7 +641,8 @@ class Asteroid(pygame.sprite.Sprite):
 
     @staticmethod
     def spawn(number_of_asteroids, min_speed, max_speed, min_angle,
-              player_rect, min_player_distance, width, height):
+              player_rect, min_player_distance, width, height,
+              explosion_channel):
         """Randomly generates new asteroids.
 
         Args:
@@ -637,7 +674,8 @@ class Asteroid(pygame.sprite.Sprite):
                 spin_amount = random.randint(-200, 200)
 
             asteroid_list.append(Asteroid(speed, direction, image_number,
-                                          spin_amount, position))
+                                          spin_amount, position,
+                                          explosion_channel))
             number_of_asteroids -= 1
 
         return asteroid_list

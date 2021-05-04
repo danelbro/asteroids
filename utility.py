@@ -48,7 +48,7 @@ def load_sound(name):
         def play(self): pass
     if not pygame.mixer:
         return NoneSound()
-    fullname = os.path.join('data', name)
+    fullname = os.path.join('data', 'sounds', name)
     try:
         sound = pygame.mixer.Sound(fullname)
     except pygame.error as message:

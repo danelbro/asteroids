@@ -6,6 +6,17 @@ import random
 import pygame
 import game_state
 
+
+def setup_channels():
+    sounds_dir = os.path.join('data', 'sounds')
+    pygame.mixer.set_num_channels(len(os.listdir(sounds_dir)))
+    channels = {}
+    for i, sound in enumerate(os.listdir(sounds_dir)):
+        channel_title = sound.split('.')[0]
+        channels[channel_title] = pygame.mixer.Channel(i)
+
+    return channels
+
 def main():
     # initialise pygame
     pygame.init()
@@ -16,6 +27,7 @@ def main():
     clock = pygame.time.Clock()
     background = pygame.Surface(screen.get_size()).convert()
     random.seed()
+    channels = setup_channels()           
     still_running = True
 
     # common variables
@@ -27,9 +39,10 @@ def main():
     padding = 5
 
     state_machine = game_state.StateMachine(screen, background,
-                                             bg_color, clock, fps,
-                                             font_color, font_file,
-                                             button_color, padding)
+                                            bg_color, clock, fps,
+                                            font_color, font_file,
+                                            button_color, padding,
+                                            channels)
 
     while still_running:
         still_running = state_machine.main_loop()

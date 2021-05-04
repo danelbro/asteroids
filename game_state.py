@@ -22,7 +22,7 @@ class StateMachine():
 
     def __init__(self, screen, background, bg_color,
                  clock, fps, font_color, font_file,
-                 button_color, padding):
+                 button_color, padding, channels):
         """Construct a StateMachine object."""
         self.score = 0
         self.level = 1
@@ -51,7 +51,7 @@ class StateMachine():
                                                   self.screen,
                                                   self.background,
                                                   self.bg_color,
-                                                  self),
+                                                  self, channels),
                             GameStates.END: End(self.font_file,
                                                 self.font_color,
                                                 self.button_color,
@@ -178,7 +178,7 @@ class Options():
 
 class Main():
     def __init__(self, font_file, font_color, button_color, padding,
-                 screen, background, bg_color, state_machine):
+                 screen, background, bg_color, state_machine, channels):
         # general
         self.FONT_FILE = font_file
         self.FONT_COLOR = font_color
@@ -196,6 +196,7 @@ class Main():
         self.all_assets = []
         self.seen = False
         self.state_machine = state_machine
+        self.channels = channels
 
         self.config = configparser.ConfigParser()
         self.config.read('config.ini')
@@ -295,7 +296,10 @@ class Main():
                                     self.BG_COLOR, self.STARTING_LIVES,
                                     self.PLAYER_RESPAWN_FLASH_SPEED,
                                     self.PLAYER_RESPAWN_TIME / 1000,
-                                    self.PLAYER_BULLET_LIFESPAN)
+                                    self.PLAYER_BULLET_LIFESPAN,
+                                    self.channels['thrust_player'],
+                                    self.channels['hyperspace_player'],
+                                    self.channels['shoot_player'])
         self.players.add(self.player)
 
         self.scoreboard = assets.Scoreboard(self.FONT_FILE,
@@ -333,8 +337,7 @@ class Main():
             if input_dict['player_hyperspace']:
                 self.player.hyperspace(len(self.asteroids))
             if input_dict['player_fire']:
-                shot = self.player.gun.fire(current_time, self.player.rect,
-                                            self.player.facing_direction)
+                shot = self.player.gun.fire(current_time)
                 if shot is not None:
                     self.shots.add(shot)
 
@@ -363,10 +366,12 @@ class Main():
                                              self.player.velocity,
                                              self.player.velocity_direction,
                                              self.LEVEL_FRICTION,
-                                             self.player.mass)
+                                             self.player.mass,
+                                             self.channels['explosion_player'])
         self.players.remove(self.player)
         self.player.lives -= 1
         self.player.alive = False
+        self.player.thrust_channel.stop()
         self.player_hit_time = current_time
         self.players.add(self.dead_player)
         if self.player.lives < 1:
@@ -387,9 +392,10 @@ class Main():
             pygame.sprite.collide_mask)
 
         for enemy, shot_list in enemies_shot_by_player.items():
-            score_gain = int(self.BASE_SCORE * enemy.state)
+            score_gain = int(self.BASE_SCORE * enemy.state.value)
             self.score += score_gain
             self.extra_life_tracker += score_gain
+            enemy.explosion_channel.play(enemy.explosion_sound)
             enemy.kill()
             self.enemy_spawned = False
             self.previous_enemy_spawn = current_time - self.ENEMY_OVERLAP_OFFSET
@@ -398,9 +404,9 @@ class Main():
         new_enemy_state_gen = random.random()
         new_enemy_state_weight = utility.normalize(self.score, 0, 40000)
         if new_enemy_state_weight >= new_enemy_state_gen:
-            new_enemy_state = 1
+            new_enemy_state = assets.EnemyStates.SMALL
         else:
-            new_enemy_state = 2
+            new_enemy_state = assets.EnemyStates.BIG
 
         self.enemies.add(assets.Enemy.spawn(
             self.ENEMY_MIN_SPEED, self.ENEMY_MAX_SPEED,
@@ -409,27 +415,27 @@ class Main():
             1000 / self.ENEMY_FIRE_RATE, self.ENEMY_SHOT_POWER,
             self.ENEMY_BULLET_LIFESPAN, new_enemy_state,
             self.ENEMY_MAX_INNACURACY_ANGLE,
-            self.ENEMY_MAX_DIFFICULTY_AT_SCORE))
+            self.ENEMY_MAX_DIFFICULTY_AT_SCORE,
+            self.channels['shoot_enemy'],
+            self.channels['explosion_enemy']))
         self.previous_enemy_spawn = current_time
         self.enemy_spawned = True
 
     def _check_asteroid_collisions(self):
         asteroids_shot_by_player = pygame.sprite.groupcollide(
             self.asteroids, self.shots, True, True,
-            pygame.sprite.collide_mask
-        )
+            pygame.sprite.collide_mask)
 
         asteroids_shot_by_enemies = pygame.sprite.groupcollide(
             self.asteroids, self.enemy_shots, True, True,
-            pygame.sprite.collide_mask
-        )
+            pygame.sprite.collide_mask)
 
         shot_asteroids = {**asteroids_shot_by_player,
                           **asteroids_shot_by_enemies}
 
         for asteroid, shot_list in shot_asteroids.items():
             for shot in shot_list:
-                if shot.id == 'player':
+                if isinstance(shot.owner, assets.Player):
                     score_gain = int(self.BASE_SCORE / asteroid.state)
                     self.score += score_gain
                     self.extra_life_tracker += score_gain
@@ -471,15 +477,15 @@ class Main():
                                          self.player.rect,
                                          self.MIN_ASTEROID_DIST,
                                          self.screen.get_width(),
-                                         self.screen.get_height())
+                                         self.screen.get_height(),
+                                         self.channels['explosion_asteroid'])
         self.asteroids.add(ast_list)
         self.asteroids_spawned = True
 
     def _enemy_fire(self, current_time):
         for enemy in self.enemies.sprites():
             if enemy.primed:
-                enemy_shot = enemy.gun.fire(current_time, enemy.rect,
-                                            enemy.facing_direction)
+                enemy_shot = enemy.gun.fire(current_time)
                 if enemy_shot is not None:
                     self.enemy_shots.add(enemy_shot)
 
@@ -594,6 +600,7 @@ class End():
         self.score = score
         self.lives = lives
         self.level = level
+        self.scoreboard_dirty_rects = None
         self.dirty_rects = []
         self.all_assets = []
 
@@ -674,16 +681,19 @@ class End():
             current_time - self.start_time >= self.TIME_TO_START):
             self.menu_showing = True
             scoreboard = self.all_assets.pop()
-            self.dirty_rects.extend(scoreboard.clear(self.screen,
-                                                     self.background))
+            self.scoreboard_dirty_rects = scoreboard.clear(self.screen,
+                                                           self.background)
             self.all_assets.extend([self.heading, self.score_heading,
                                     self.highscores, self.buttons_panel])
 
         return input_dict['next_state']
 
     def render(self, delta_time, *args, **kwargs):
-        self.dirty_rects = utility.draw_all(self.all_assets, self.screen,
-                                            self.background, delta_time,
-                                            self.score, self.level,
-                                            self.lives)
-        pygame.display.update(self.dirty_rects)
+        dirty_rects = utility.draw_all(self.all_assets, self.screen,
+                                       self.background, delta_time,
+                                       self.score, self.level,
+                                       self.lives)
+        if self.scoreboard_dirty_rects:
+            dirty_rects.extend(self.scoreboard_dirty_rects)
+            self.scoreboard_dirty_rects = None
+        pygame.display.update(dirty_rects)
