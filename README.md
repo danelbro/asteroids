@@ -7,7 +7,6 @@ This is a clone of the original 'Asteroids' arcade game, written in Python using
 
 # To-Do List
 - Add particle effects
-- Add sounds
 - Add options screen
 - ~~Add peristent highscores list~~
 - ~~Add explosion animations for player~~
@@ -18,3 +17,4 @@ This is a clone of the original 'Asteroids' arcade game, written in Python using
 - ~~Add second enemy spaceship~~
 - ~~Add adaptive difficulty~~
 - ~~Add life gain each 10,000 points~~
+- ~~Add sounds~~

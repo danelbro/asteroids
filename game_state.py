@@ -25,15 +25,16 @@ class MusicHandler():
         self.high_channel.set_volume(volume)
         self.initial_time = initial_time 
         self.rate = rate
-        self.fastest_time = self._determine_smallest_rate()
+        self.count = 1000 / self.initial_time 
+        self.fastest_time = self._determine_fastest_time()
         self.time = self.initial_time
         self.last_played_time = 0
         self.last_played_sound = self.low_sound
 
-    def _determine_smallest_rate(self):
+    def _determine_fastest_time(self):
         first_length = self.low_sound.get_length()
         second_length = self.high_sound.get_length()
-        return max(first_length, second_length)
+        return max(first_length, second_length) + 200
         
     def _determine_sound(self):
         if self.last_played_sound == self.low_sound:
@@ -51,7 +52,8 @@ class MusicHandler():
         next_sound, next_channel = self._determine_sound()
         next_channel.play(next_sound)
         self.last_played_sound = next_sound
-        self.time = max(self.fastest_time, self.time - self.rate)
+        self.time = max(self.fastest_time, 1 / (self.count / 1000)) 
+        self.count += self.rate / 1000
 
 
 class StateMachine():
@@ -314,6 +316,8 @@ class Main():
                                           self.MUSIC_VOLUME,
                                           self.MUSIC_GAP,
                                           self.MUSIC_RATE)
+        self.enemy_attack_channel = self.channels['attack_enemy']
+        self.enemy_attack_sound = utility.load_sound('attack_enemy.wav')
 
     def _first_render(self):
         self.score = 0
@@ -453,6 +457,9 @@ class Main():
             enemy.kill()
             self.enemy_spawned = False
             self.previous_enemy_spawn = current_time - self.ENEMY_OVERLAP_OFFSET
+
+        if not self.enemy_spawned:
+            self.enemy_attack_channel.stop()
 
     def _spawn_enemy(self, current_time):
         new_enemy_state_gen = random.random()
@@ -595,6 +602,9 @@ class Main():
 
         if self._level_started:
             self.music_handler.play(current_time)
+
+        if self.enemy_spawned and not self.enemy_attack_channel.get_busy():
+            self.enemy_attack_channel.play(self.enemy_attack_sound)
 
         self._check_player_control()
         self._handle_input(input_dict, self.player_has_control, current_time)
