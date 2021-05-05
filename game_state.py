@@ -10,6 +10,7 @@ import configparser
 
 class GameStates(enum.Enum):
     INTRO = enum.auto()
+    CONTROLS = enum.auto()
     OPTIONS = enum.auto()
     MAIN = enum.auto()
     END = enum.auto()
@@ -23,7 +24,7 @@ class MusicHandler():
         self.high_channel = high_channel
         self.low_channel.set_volume(volume)
         self.high_channel.set_volume(volume)
-        self.initial_time = initial_time 
+        self.initial_time = initial_time
         self.rate = rate
         self.fastest_time = self._determine_fastest_time()
         self.last_played_time = 0
@@ -34,7 +35,7 @@ class MusicHandler():
         first_length = self.low_sound.get_length()
         second_length = self.high_sound.get_length()
         return max(first_length, second_length) + 200
-        
+
     def _determine_sound(self):
         if self.last_played_sound == self.low_sound:
             return self.high_sound, self.high_channel
@@ -46,12 +47,12 @@ class MusicHandler():
 
     def play(self, current_time):
         if current_time < self.last_played_time + self.time:
-            return None
+            return
         self.last_played_time = current_time
         next_sound, next_channel = self._determine_sound()
         next_channel.play(next_sound)
         self.last_played_sound = next_sound
-        self.time = max(self.fastest_time, 1 / (self.count / 1000)) 
+        self.time = max(self.fastest_time, 1 / (self.count / 1000))
         self.count += self.rate / 1000
 
 
@@ -83,15 +84,23 @@ class StateMachine():
                                                     self.background,
                                                     self.bg_color,
                                                     self),
+                            GameStates.CONTROLS: Controls(self.font_file,
+                                                          self.font_color,
+                                                          self.button_color,
+                                                          self.padding,
+                                                          self.screen,
+                                                          self.background,
+                                                          self.bg_color,
+                                                          self),
                             GameStates.OPTIONS: Options(),
-                            GameStates.MAIN: Main(self.font_file,
-                                                  self.font_color,
-                                                  self.button_color,
-                                                  self.padding,
-                                                  self.screen,
-                                                  self.background,
-                                                  self.bg_color,
-                                                  self, channels),
+                            GameStates.MAIN:Main(self.font_file,
+                                                 self.font_color,
+                                                 self.button_color,
+                                                 self.padding,
+                                                 self.screen,
+                                                 self.background,
+                                                 self.bg_color,
+                                                 self, channels),
                             GameStates.END: End(self.font_file,
                                                 self.font_color,
                                                 self.button_color,
@@ -130,6 +139,11 @@ class Intro():
         self.FONT_COLOR = font_color
         self.BUTTON_COLOR = button_color
         self.PADDING = padding
+        self.BUTTONS_DICT = {'New Game': GameStates.MAIN,
+                             'Controls': GameStates.CONTROLS,
+                             'Options': GameStates.OPTIONS,
+                             'Quit': None}
+        self.BUTTON_LABELS = list(self.BUTTONS_DICT.keys())
 
         self.title_y_pos = self.screen.get_rect().centery
         self.title = assets.Title('Asteroids',
@@ -143,10 +157,7 @@ class Intro():
                                             self.BUTTON_COLOR,
                                             screen.get_rect().centerx, 0,
                                             self.PADDING,
-                                            'New Game',
-                                            'Controls',
-                                            'Options',
-                                            'Quit')
+                                            *self.BUTTON_LABELS)
 
         self.buttons_y_pos = (self.screen.get_height()
                               - (self.PADDING * 4)
@@ -179,15 +190,8 @@ class Intro():
                 mouse_pos = pygame.mouse.get_pos()
                 for button in self.buttons_panel.buttons:
                     if button['button_rect'].collidepoint(mouse_pos):
-                        if button['label'] == 'New Game':
-                            input_dict['next_state'] = GameStates.MAIN
-                            break
-                        elif button['label'] == 'Options':
-                            input_dict['next_state'] = GameStates.OPTIONS
-                            break
-                        elif button['label'] == 'Quit':
-                            input_dict['next_state'] = None
-                            break
+                        input_dict['next_state'] = self.BUTTONS_DICT[button['label']]
+                        break
         return input_dict
 
     def update(self, input_dict, *args, **kwargs):
@@ -196,9 +200,92 @@ class Intro():
         if input_dict['next_state']:
             if input_dict['next_state'] != GameStates.INTRO:
                 self.seen = False
-            return input_dict['next_state']
-        else:
-            return None
+        return input_dict['next_state']
+
+    def render(self, *args, **kwargs):
+        dirty_rects = utility.draw_all(self.all_assets, self.screen,
+                                       self.background)
+        pygame.display.update(dirty_rects)
+
+
+class Controls():
+    def __init__(self, font_file, font_color, button_color, padding,
+                 screen, background, bg_color, state_machine):
+        self.screen = screen
+        self.background = background
+        self.BG_COLOR = bg_color
+        self.state_machine = state_machine
+        
+        self.heading_y_pos = 50
+        self.heading = assets.Title('Controls', font_file, 40, font_color,
+                                    (self.screen.get_rect().centerx,
+                                     self.heading_y_pos))
+
+        expl_x_offset = int(self.screen.get_rect().centerx / 2)
+        expl_y_offset = int(self.screen.get_rect().centery / 8)
+        first_row_y = int(self.screen.get_rect().centery - expl_y_offset) 
+        second_row_y = int(self.screen.get_rect().centery + expl_y_offset)
+        self.thrust_expl = assets.Title('Thrust: Up Arrow',
+                                        font_file, 30, font_color,
+                                        (expl_x_offset, first_row_y))
+
+        self.turn_expl = assets.Title('Turn: L/R Arrow',
+                                      font_file, 30, font_color,
+                                      (self.screen.get_rect().centerx
+                                       + expl_x_offset, first_row_y))
+
+        self.fire_expl = assets.Title('Fire: Space',
+                                      font_file, 30, font_color,
+                                      (expl_x_offset, second_row_y))
+
+        self.hyperspace_expl = assets.Title('Hyperspace: Left Shift',
+                                            font_file, 30, font_color,
+                                            (self.screen.get_rect().centerx
+                                             + expl_x_offset, second_row_y))
+        self.buttons_dict = {'Back': GameStates.INTRO}
+        self.button_labels = list(self.buttons_dict.keys())
+        self.buttons_panel = assets.Buttons(font_file, 28, font_color,
+                                            button_color,
+                                            self.screen.get_rect().centerx,
+                                            650, padding, *self.button_labels)
+
+        self.all_assets = [self.heading, self.thrust_expl, self.turn_expl,
+                           self.fire_expl, self.hyperspace_expl,
+                           self.buttons_panel]
+        self.seen = False
+
+    def _first_render(self):
+        self.background.fill(self.BG_COLOR)
+        self.screen.blit(self.background, (0, 0))
+        pygame.display.update()
+        self.seen = True
+
+    def get_input(self):
+        input_dict = {'next_state': GameStates.CONTROLS}
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                input_dict['next_state'] = None
+                break
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    input_dict['next_state'] = GameStates.INTRO
+                    break
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                for button in self.buttons_panel.buttons:
+                    if button['button_rect'].collidepoint(mouse_pos):
+                        input_dict['next_state'] = GameStates.INTRO
+                        break
+            
+        return input_dict
+
+    def update(self, input_dict, *args, **kwargs):
+        if not self.seen:
+            self._first_render()
+        if input_dict['next_state']:
+            if input_dict['next_state'] != GameStates.CONTROLS:
+                self.seen = False
+        return input_dict['next_state']
 
     def render(self, *args, **kwargs):
         dirty_rects = utility.draw_all(self.all_assets, self.screen,
@@ -210,8 +297,8 @@ class Options():
     def get_input(self):
         return {'next_state': GameStates.INTRO}
 
-    def update(self, *args, **kwargs):
-        pass
+    def update(self, input_dict, *args, **kwargs):
+        return input_dict['next_state']
 
     def render(self, *args, **kwargs):
         pass
@@ -288,6 +375,8 @@ class Main():
             enemy_config['spawn_overlap_offset_ms'])
         self.ENEMY_MAX_INNACURACY_ANGLE = int(
             enemy_config['max_innacuracy_angle'])
+        self.ENEMY_MIN_INNACURACY_ANGLE = int(
+            enemy_config['min_innacuracy_angle'])
         self.ENEMY_MAX_DIFFICULTY_AT_SCORE = int(
             enemy_config['max_difficulty_score'])
 
@@ -475,6 +564,7 @@ class Main():
             1000 / self.ENEMY_FIRE_RATE, self.ENEMY_SHOT_POWER,
             self.ENEMY_BULLET_LIFESPAN, new_enemy_state,
             self.ENEMY_MAX_INNACURACY_ANGLE,
+            self.ENEMY_MIN_INNACURACY_ANGLE,
             self.ENEMY_MAX_DIFFICULTY_AT_SCORE,
             self.channels['shoot_enemy'],
             self.channels['explosion_enemy']))
@@ -617,7 +707,7 @@ class Main():
         if self.player_out_of_lives:
             input_dict['next_state'] = GameStates.END
             self.state_machine.states_dict[GameStates.END].setup(
-                50, self.score, self.player.lives, self.level, self.all_assets)
+                self.score, self.player.lives, self.level, self.all_assets)
 
         if (not self.player.alive
             and not self.player_out_of_lives
@@ -668,13 +758,18 @@ class End():
         self.BUTTON_COLOR = button_color
         self.PADDING = padding
         self.BG_COLOR = bg_color
+        self.TEXT_POS = 50 
+        self.BUTTONS_DICT = {'New Game': GameStates.MAIN,
+                             'Main Menu': GameStates.INTRO,
+                             'Quit': None}
+        self.BUTTON_LABELS = list(self.BUTTONS_DICT.keys())
 
         self.screen = screen
         self.background = background
         self.state_machine = state_machine
 
-    def setup(self, text_pos, score, lives, level, asset_list):
-        self.heading_y_pos = text_pos
+    def setup(self, score, lives, level, asset_list):
+        self.heading_y_pos = self.TEXT_POS 
         self.score = score
         self.lives = lives
         self.level = level
@@ -711,8 +806,8 @@ class End():
                                             self.FONT_COLOR,
                                             self.BUTTON_COLOR,
                                             self.screen.get_rect().centerx,
-                                            0, self.PADDING, 'New Game',
-                                            'Main Menu', 'Quit')
+                                            0, self.PADDING,
+                                            *self.BUTTON_LABELS)
 
         self.buttons_y_pos = (self.screen.get_height()
                               - (self.PADDING * 4) - self.buttons_panel.height)
@@ -742,14 +837,8 @@ class End():
                 mouse_pos = pygame.mouse.get_pos()
                 for button in self.buttons_panel.buttons:
                     if button['button_rect'].collidepoint(mouse_pos):
-                        if button['label'] == 'New Game':
-                            input_dict['next_state'] = GameStates.MAIN
-                            break
-                        elif button['label'] == 'Main Menu':
-                            input_dict['next_state'] = GameStates.INTRO
-                            break
-                        elif button['label'] == 'Quit':
-                            input_dict['next_state'] = None
+                        input_dict['next_state'] = self.BUTTONS_DICT[button['label']] 
+                        break
         return input_dict
 
     def update(self, input_dict, delta_time, *args, **kwargs):

@@ -331,8 +331,8 @@ class DeadPlayer(pygame.sprite.Sprite):
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, spawn_position, initial_dir, speed,
                  fire_rate, shot_power, bullet_lifespan, state,
-                 max_inaccuracy_angle, max_score, shot_channel,
-                 explosion_channel):
+                 max_inaccuracy_angle, min_innacuracy_angle, max_score,
+                 shot_channel, explosion_channel):
         super().__init__()
         folder_name = os.path.join('data', 'sprites', 'enemy')
         self.image = utility.load_image(f'enemy-{state.value}.png', folder_name, -1)
@@ -353,6 +353,7 @@ class Enemy(pygame.sprite.Sprite):
         self.explosion_sound = utility.load_sound('explosion_enemy.wav')
         if self.state == EnemyStates.SMALL:
             self.max_inaccuracy_angle = max_inaccuracy_angle
+            self.min_innacuracy_angle = min_innacuracy_angle
             self.max_score = max_score
 
     def update(self, delta_time, score, *args, **kwargs):
@@ -366,7 +367,8 @@ class Enemy(pygame.sprite.Sprite):
                 self.facing_direction = self.facing_direction.normalize()
 
                 t = utility.normalize(score, 0, self.max_score)
-                rotate_amount = utility.lerp(self.max_inaccuracy_angle, 0, t)
+                rotate_amount = utility.lerp(self.max_inaccuracy_angle,
+                                             self.min_innacuracy_angle, t)
                 negatizer = random.choice([-1, 1])
                 self.facing_direction.rotate_ip(rotate_amount * negatizer)
             else:
@@ -388,8 +390,8 @@ class Enemy(pygame.sprite.Sprite):
     @staticmethod
     def spawn(min_speed, max_speed, min_angle, player_pos, min_player_distance,
               width, height, fire_rate, shot_power, bullet_lifespan, state,
-              innacuracy_angle, max_difficulty_at_score, shot_channel,
-              explosion_channel):
+              max_innacuracy_angle, min_innacuracy_angle,
+              max_difficulty_at_score, shot_channel, explosion_channel):
         speed = random.randint(min_speed, max_speed)
         direction = utility.random_angle_vector(min_angle)
         position = utility.random_position(min_player_distance, width,
@@ -406,8 +408,9 @@ class Enemy(pygame.sprite.Sprite):
             position.y = height
 
         return Enemy(position, direction, speed, fire_rate, shot_power,
-                     bullet_lifespan, state, innacuracy_angle,
-                     max_difficulty_at_score, shot_channel, explosion_channel)
+                     bullet_lifespan, state, max_innacuracy_angle,
+                     min_innacuracy_angle, max_difficulty_at_score,
+                     shot_channel, explosion_channel)
 
 
 class Gun():
