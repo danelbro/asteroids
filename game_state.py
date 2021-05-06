@@ -653,8 +653,9 @@ class Main():
 
     def _prepare_next_state(self):
         self.seen = False
-        for channel in self.channels.values():
-            channel.stop()
+        for channel in self.channels.items():
+            if channel[0] != 'explosion_player':
+                channel[1].stop()
         self.all_assets.clear()
 
     def _handle_input(self, input_dict, player_has_control, current_time):
