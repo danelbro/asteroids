@@ -21,7 +21,7 @@ def main():
     # initialise pygame
     pygame.init()
     width = 960
-    height = 720
+    height =720
     screen = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Asteroids')
     clock = pygame.time.Clock()

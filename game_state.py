@@ -92,7 +92,14 @@ class StateMachine():
                                                           self.background,
                                                           self.bg_color,
                                                           self),
-                            GameStates.OPTIONS: Options(),
+                            GameStates.OPTIONS: Options(self.font_file,
+                                                        self.font_color,
+                                                        self.button_color,
+                                                        self.padding,
+                                                        self.screen,
+                                                        self.background,
+                                                        self.bg_color,
+                                                        self),
                             GameStates.MAIN:Main(self.font_file,
                                                  self.font_color,
                                                  self.button_color,
@@ -190,7 +197,8 @@ class Intro():
                 mouse_pos = pygame.mouse.get_pos()
                 for button in self.buttons_panel.buttons:
                     if button['button_rect'].collidepoint(mouse_pos):
-                        input_dict['next_state'] = self.BUTTONS_DICT[button['label']]
+                        next_state = self.BUTTONS_DICT[button['label']]
+                        input_dict['next_state'] = next_state
                         break
         return input_dict
 
@@ -215,7 +223,7 @@ class Controls():
         self.background = background
         self.BG_COLOR = bg_color
         self.state_machine = state_machine
-        
+
         self.heading_y_pos = 50
         self.heading = assets.Title('Controls', font_file, 40, font_color,
                                     (self.screen.get_rect().centerx,
@@ -223,7 +231,7 @@ class Controls():
 
         expl_x_offset = int(self.screen.get_rect().centerx / 2)
         expl_y_offset = int(self.screen.get_rect().centery / 8)
-        first_row_y = int(self.screen.get_rect().centery - expl_y_offset) 
+        first_row_y = int(self.screen.get_rect().centery - expl_y_offset)
         second_row_y = int(self.screen.get_rect().centery + expl_y_offset)
         self.thrust_expl = assets.Title('Thrust: Up Arrow',
                                         font_file, 30, font_color,
@@ -274,9 +282,9 @@ class Controls():
                 mouse_pos = pygame.mouse.get_pos()
                 for button in self.buttons_panel.buttons:
                     if button['button_rect'].collidepoint(mouse_pos):
-                        input_dict['next_state'] = GameStates.INTRO
+                        input_dict['next_state'] = self.buttons_dict[button['label']]
                         break
-            
+
         return input_dict
 
     def update(self, input_dict, *args, **kwargs):
@@ -294,14 +302,189 @@ class Controls():
 
 
 class Options():
-    def get_input(self):
-        return {'next_state': GameStates.INTRO}
+    def __init__(self, font_file, font_color, button_color, padding,
+                 screen, background, bg_color, state_machine):
+        self.font_file = font_file
+        self.font_color = font_color
+        self.button_color = button_color
+        self.padding = padding
+        self.screen = screen
+        self.background = background
+        self.bg_color = bg_color
+        self.config = configparser.ConfigParser()
+        self.seen = False
+        self.button_speed = 100
 
-    def update(self, input_dict, *args, **kwargs):
+        self.heading = assets.Title('Options', self.font_file,
+                                    24, self.font_color,
+                                    (self.screen.get_rect().centerx,
+                                     self.padding * 5))
+        self.column_size = self.screen.get_rect().width / 6
+        self.subtitle_height = 55
+        self.player_title = assets.Title('Player', self.font_file, 20,
+                                         self.font_color,
+                                         (self.column_size,
+                                          self.subtitle_height))
+        self.enemy_title = assets.Title('Enemies', self.font_file, 20,
+                                        self.font_color,
+                                        (self.column_size * 2.25,
+                                         self.subtitle_height))
+        self.asteroid_title = assets.Title('Asteroids', self.font_file, 20,
+                                           self.font_color,
+                                           (self.column_size * 3.5,
+                                            self.subtitle_height))
+        self.music_title = assets.Title('Music', self.font_file, 20,
+                                        self.font_color,
+                                        (self.column_size * 4.75,
+                                        self.subtitle_height))
+
+        self.buttons_dict = {'Save': GameStates.INTRO,
+                             'Back': GameStates.INTRO}
+        self.button_labels = list(self.buttons_dict.keys())
+        self.buttons_panel = assets.Buttons(self.font_file, 30,
+                                            self.font_color,
+                                            self.button_color,
+                                            self.column_size * 4.75, 0,
+                                            self.padding,
+                                            *self.button_labels)
+        buttons_y_pos = (self.screen.get_rect().height
+                         - self.buttons_panel.height
+                         - self.padding)
+        self.buttons_panel.y_pos = buttons_y_pos
+        self.buttons_panel.reposition()
+        self.config_buttons = pygame.sprite.RenderUpdates()
+        
+    def _first_render(self):
+        self.config_buttons.empty()
+        self.all_assets = []
+        self.last_pressed = 0
+        button_offset = 35
+
+        self.config.read('config.ini')
+
+        self.config_titles = []
+        self.config_text_strings = []
+        for j, section in enumerate(self.config.sections()):
+            for i, option in enumerate(self.config[section]):
+                title_text_string = ' '.join(option.capitalize().split('_'))
+                option_title = assets.Title(
+                    title_text_string, self.font_file, 16, self.font_color,
+                    ((self.column_size
+                      * ((1.25 * j) + 1)),
+                     (self.subtitle_height
+                      + ((self.padding * 5)
+                         + (self.padding * 5 * i) * 2))))
+
+                option_text_string = self.config[section][option]
+                option_text = assets.Title(
+                    option_text_string, self.font_file, 16, self.font_color,
+                    ((self.column_size
+                      * ((1.25 * j) + 1)),
+                     (self.subtitle_height
+                      + (((self.padding * 5) * 2)
+                        + (self.padding * 5 * i) * 2))))
+
+                left_button = assets.OptionsButton(
+                    'down', (option_text.text_rect.centerx - button_offset,
+                             (self.subtitle_height
+                              + (((self.padding * 5) * 2)
+                                 + (self.padding * 5 * i) * 2))),
+                    self.config, section, option)
+
+                right_button = assets.OptionsButton(
+                    'up', (option_text.text_rect.centerx + button_offset,
+                           (self.subtitle_height
+                            + (((self.padding * 5) * 2)
+                               + (self.padding * 5 * i) * 2))),
+                    self.config, section, option)
+
+                self.config_titles.append(option_title)
+                self.config_text_strings.append(option_text)
+                self.config_buttons.add(left_button, right_button)
+
+        self.all_assets.extend([self.heading, self.player_title,
+                                self.enemy_title, self.asteroid_title,
+                                self.music_title, self.buttons_panel,
+                                *self.config_titles,
+                                *self.config_text_strings,
+                                self.config_buttons])
+
+        self.background.fill(self.bg_color)
+        self.screen.blit(self.background, (0, 0))
+        pygame.display.update()
+        self.seen = True
+
+    def _update_options(self):
+        last_section_length = 0
+        for section in self.config.sections():
+            for i, option in enumerate(self.config[section]):
+                new_option_text = self.config[section][option]
+                self.config_text_strings[i + last_section_length].update_text(
+                    new_option_text)
+            last_section_length += len(self.config[section])  
+
+    def _change_option(self, pressed_button):
+        pressed_button.update_option()
+
+    def _save_options(self):
+        with open('config.ini', 'w') as configfile:
+            self.config.write(configfile)
+
+    def get_input(self):
+        input_dict = {'next_state': GameStates.OPTIONS,
+                      'save': False,
+                      'change_option': None}
+
+        mouse_pos = pygame.mouse.get_pos()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                input_dict['next_state'] = None
+                break
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                   input_dict['next_state'] = GameStates.INTRO
+                   break
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1: 
+                    for button in self.buttons_panel.buttons:
+                        if button['button_rect'].collidepoint(mouse_pos):
+                            input_dict['next_state'] = self.buttons_dict[button['label']]
+                            if button['label'] == 'Save':
+                                input_dict['save'] = True
+
+        mouse_buttons = pygame.mouse.get_pressed()
+        if mouse_buttons[0]:
+            for button in self.config_buttons:
+                if button.rect.collidepoint(mouse_pos):
+                    input_dict['change_option'] = button
+
+        return input_dict
+
+    def update(self, input_dict, delta_time, *args, **kwargs):
+        current_time = pygame.time.get_ticks()
+        if not self.seen:
+            self._first_render()
+            
+        self._update_options()
+
+        if (input_dict['change_option'] is not None
+            and current_time - self.last_pressed >= self.button_speed):
+            self._change_option(input_dict['change_option'])
+            self.last_pressed = current_time
+ 
+        if input_dict['save']:
+            self._save_options()
+
+        if input_dict['next_state']:
+            if input_dict['next_state'] != GameStates.OPTIONS:
+                self.seen = False
+                self.all_assets.clear()
         return input_dict['next_state']
 
     def render(self, *args, **kwargs):
-        pass
+        self.screen.blit(self.background, (0, 0))
+        utility.draw_all(self.all_assets, self.screen, self.background)
+        pygame.display.update()
 
 
 class Main():
@@ -344,16 +527,16 @@ class Main():
         self.PLAYER_MASS = int(player_config['mass'])
         self.PLAYER_TURN_SPEED = int(player_config['turn_speed'])
         self.LEVEL_FRICTION = float(player_config['level_friction'])
-        self.PLAYER_FIRE_RATE = int(player_config['fire_rate_per_s'])
+        self.PLAYER_FIRE_RATE = int(player_config['fire_rate'])
         self.PLAYER_SHOT_POWER = int(player_config['shot_power'])
         self.PLAYER_ANIMATION_SPEED = int(player_config['animation_speed'])
         self.PLAYER_HYPERSPACE_LENGTH = float(
-            player_config['hyperspace_length_s'])
+            player_config['hyperspace_length'])
         self.PLAYER_RESPAWN_FLASH_SPEED = int(
             player_config['respawn_flash_speed'])
         self.LEVEL_TRANSITION_FLASH_SPEED = int(
             player_config['level_transition_flash_speed'])
-        self.PLAYER_RESPAWN_TIME = int(player_config['respawn_time_ms'])
+        self.PLAYER_RESPAWN_TIME = int(player_config['respawn_time'])
         self.PLAYER_BULLET_LIFESPAN = float(player_config['bullet_lifespan'])
 
         # dead player
@@ -367,12 +550,12 @@ class Main():
         self.ENEMY_MIN_ANGLE = float(enemy_config['min_angle'])
         self.MIN_ENEMY_DISTANCE = int(enemy_config['min_distance'])
         self.ENEMY_SHOT_POWER = int(enemy_config['shot_power'])
-        self.ENEMY_FIRE_RATE = float(enemy_config['fire_rate_per_s'])
-        self.ENEMY_BULLET_LIFESPAN = float(enemy_config['bullet_lifespan_s'])
+        self.ENEMY_FIRE_RATE = float(enemy_config['fire_rate'])
+        self.ENEMY_BULLET_LIFESPAN = float(enemy_config['bullet_lifespan'])
         self.TIME_BETWEEN_ENEMY_SPAWNS = int(
-            enemy_config['time_between_spawns_ms'])
+            enemy_config['time_between_spawns'])
         self.ENEMY_OVERLAP_OFFSET = int(
-            enemy_config['spawn_overlap_offset_ms'])
+            enemy_config['spawn_overlap_offset'])
         self.ENEMY_MAX_INNACURACY_ANGLE = int(
             enemy_config['max_innacuracy_angle'])
         self.ENEMY_MIN_INNACURACY_ANGLE = int(
@@ -470,6 +653,8 @@ class Main():
 
     def _prepare_next_state(self):
         self.seen = False
+        for channel in self.channels.values():
+            channel.stop()
         self.all_assets.clear()
 
     def _handle_input(self, input_dict, player_has_control, current_time):
@@ -758,7 +943,7 @@ class End():
         self.BUTTON_COLOR = button_color
         self.PADDING = padding
         self.BG_COLOR = bg_color
-        self.TEXT_POS = 50 
+        self.TEXT_POS = 50
         self.BUTTONS_DICT = {'New Game': GameStates.MAIN,
                              'Main Menu': GameStates.INTRO,
                              'Quit': None}
@@ -769,7 +954,7 @@ class End():
         self.state_machine = state_machine
 
     def setup(self, score, lives, level, asset_list):
-        self.heading_y_pos = self.TEXT_POS 
+        self.heading_y_pos = self.TEXT_POS
         self.score = score
         self.lives = lives
         self.level = level
@@ -837,7 +1022,7 @@ class End():
                 mouse_pos = pygame.mouse.get_pos()
                 for button in self.buttons_panel.buttons:
                     if button['button_rect'].collidepoint(mouse_pos):
-                        input_dict['next_state'] = self.BUTTONS_DICT[button['label']] 
+                        input_dict['next_state'] = self.BUTTONS_DICT[button['label']]
                         break
         return input_dict
 

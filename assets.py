@@ -692,12 +692,19 @@ class Particles(pygame.sprite.Sprite):
 # on screen text
 class Title():
     def __init__(self, text, font_file, size, font_color, pos):
-        font = pygame.font.Font(font_file, size)
-        self.text = font.render(text, True, font_color)
+        self.font = pygame.font.Font(font_file, size)
+        self.font_color = font_color
+        self.pos = pos
+        self.update_text(text) 
+        
+    def update_text(self, new_text):
+        self.text = self.font.render(new_text, True, self.font_color)
         self.text_rect = self.text.get_rect()
-        self.text_rect.center = pos
+        self.text_rect.center = self.pos
         self.height = self.text_rect.height
-
+        self.left = self.text_rect.left
+        self.right = self.text_rect.right
+    
     def update(self, *args, **kwargs):
         pass
 
@@ -1083,6 +1090,57 @@ class Buttons():
             rects.append(screen.blit(button_group['button_text'],
                                      button_group['button_text_rect']))
         return rects
+
+
+class OptionsButton(pygame.sprite.Sprite):
+    def __init__(self, pointing, pos, config, section, option):
+        super().__init__()
+        folder_name = os.path.join('data', 'sprites', 'options')
+        self.pointing = pointing
+        if self.pointing == 'up':
+            name = 'up_arrow.png'
+        elif self.pointing == 'down':
+            name = 'down_arrow.png'
+        self.image = utility.load_image(name, folder_name, (255,255,255))
+        self.rect = self.image.get_rect(center=pos)
+        self.config = config
+        self.section = section
+        self.option = option
+        option_value = self.config[self.section][self.option]
+        if option_value.isdigit():
+            self.type_string = 'int'
+            self.rate = 1
+        else:
+            self.type_string = 'float'
+            self.rate = 0.1
+
+    def reposition(self, new_pos):
+        if self.pointing == 'down':
+            self.rect.centerx = new_pos - 15
+        elif self.pointing == 'up':
+            self.rect.centerx = new_pos + 15
+            
+    def update(self, *args, **kwargs):
+        pass
+
+    def update_option(self):
+        if self.type_string == 'int':
+            option_value = int(self.config[self.section][self.option])
+            if self.pointing == 'up':
+                self.config[self.section][self.option] = str(option_value
+                                                             + self.rate)
+            elif self.pointing == 'down':
+                self.config[self.section][self.option] = str(option_value
+                                                             - self.rate)
+
+        elif self.type_string == 'float':
+            option_value = float(self.config[self.section][self.option])
+            if self.pointing == 'up':
+                self.config[self.section][self.option] = '{:.1f}'.format(
+                    option_value + self.rate)
+            elif self.pointing == 'down':
+                self.config[self.section][self.option] = '{:.1f}'.format(
+                    option_value - self.rate)
 
 
 def _check_collide(newpos, area):
