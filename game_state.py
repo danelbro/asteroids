@@ -237,7 +237,7 @@ class Controls():
                                         font_file, 30, font_color,
                                         (expl_x_offset, first_row_y))
 
-        self.turn_expl = assets.Title('Turn: L/R Arrow',
+        self.turn_expl = assets.Title('Turn: L / R Arrow',
                                       font_file, 30, font_color,
                                       (self.screen.get_rect().centerx
                                        + expl_x_offset, first_row_y))
@@ -353,7 +353,7 @@ class Options():
         self.buttons_panel.y_pos = buttons_y_pos
         self.buttons_panel.reposition()
         self.config_buttons = pygame.sprite.RenderUpdates()
-        
+
     def _first_render(self):
         self.config_buttons.empty()
         self.all_assets = []
@@ -421,7 +421,7 @@ class Options():
                 new_option_text = self.config[section][option]
                 self.config_text_strings[i + last_section_length].update_text(
                     new_option_text)
-            last_section_length += len(self.config[section])  
+            last_section_length += len(self.config[section])
 
     def _change_option(self, pressed_button):
         pressed_button.update_option()
@@ -445,7 +445,7 @@ class Options():
                    input_dict['next_state'] = GameStates.INTRO
                    break
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1: 
+                if event.button == 1:
                     for button in self.buttons_panel.buttons:
                         if button['button_rect'].collidepoint(mouse_pos):
                             input_dict['next_state'] = self.buttons_dict[button['label']]
@@ -464,14 +464,14 @@ class Options():
         current_time = pygame.time.get_ticks()
         if not self.seen:
             self._first_render()
-            
+
         self._update_options()
 
         if (input_dict['change_option'] is not None
             and current_time - self.last_pressed >= self.button_speed):
             self._change_option(input_dict['change_option'])
             self.last_pressed = current_time
- 
+
         if input_dict['save']:
             self._save_options()
 
