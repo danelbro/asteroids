@@ -21,13 +21,13 @@ def main():
     # initialise pygame
     pygame.init()
     width = 960
-    height =720
+    height = 720
     screen = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Asteroids')
     clock = pygame.time.Clock()
     background = pygame.Surface(screen.get_size()).convert()
     random.seed()
-    channels = setup_channels()           
+    channels = setup_channels()
     still_running = True
 
     # common variables
