@@ -290,7 +290,7 @@ class DeadPlayer(pygame.sprite.Sprite):
         self.mass = mass
         self._area = pygame.display.get_surface().get_rect()
         self.explosion_sound = utility.load_sound('explosion_player.wav')
-        self.explosion_channel = explosion_channel 
+        self.explosion_channel = explosion_channel
         self.explosion_channel.play(self.explosion_sound)
 
     def update(self, delta_time, *args, **kwargs):
@@ -344,7 +344,7 @@ class Enemy(pygame.sprite.Sprite):
         self.movement_direction = self.facing_direction.normalize()
         self.velocity = self.speed * self.movement_direction
         self.gun = Gun(fire_rate * state.value, shot_power, bullet_lifespan,
-                       self, shot_channel) 
+                       self, shot_channel)
         self.area = pygame.display.get_surface().get_rect()
         self.primed = True
         self.time_since_last_dir_change = 0
@@ -445,7 +445,7 @@ class Gun():
                           * (self.owner.rect.height / 2)))
         self.shot_channel.play(self.shot_sound)
         return Shot(self.owner.facing_direction, spawn_point,
-                    self._shot_power, self._bullet_lifespan, self.owner) 
+                    self._shot_power, self._bullet_lifespan, self.owner)
 
 
 class Shot(pygame.sprite.Sprite):
@@ -479,7 +479,7 @@ class Shot(pygame.sprite.Sprite):
         self._lifetime = 0.0
         self._lifespan = lifespan
         self.owner = owner
-        
+
     def update(self, delta_time, *args, **kwargs):
         """Called every frame to move the shot
 
@@ -530,7 +530,7 @@ class Asteroid(pygame.sprite.Sprite):
 
         self.velocity = velocity
         self._direction = direction.normalize()
-        self.explosion_channel = explosion_channel 
+        self.explosion_channel = explosion_channel
         self.explosion_sound = utility.load_sound('explosion_asteroid.wav')
         self.explosion_sound.set_volume(0.5)
 
@@ -695,8 +695,8 @@ class Title():
         self.font = pygame.font.Font(font_file, size)
         self.font_color = font_color
         self.pos = pos
-        self.update_text(text) 
-        
+        self.update_text(text)
+
     def update_text(self, new_text):
         self.text = self.font.render(new_text, True, self.font_color)
         self.text_rect = self.text.get_rect()
@@ -704,7 +704,7 @@ class Title():
         self.height = self.text_rect.height
         self.left = self.text_rect.left
         self.right = self.text_rect.right
-    
+
     def update(self, *args, **kwargs):
         pass
 
@@ -1119,7 +1119,7 @@ class OptionsButton(pygame.sprite.Sprite):
             self.rect.centerx = new_pos - 15
         elif self.pointing == 'up':
             self.rect.centerx = new_pos + 15
-            
+
     def update(self, *args, **kwargs):
         pass
 
