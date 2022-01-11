@@ -11,7 +11,7 @@ import configparser
 class GameStates(enum.Enum):
     INTRO = enum.auto()
     CONTROLS = enum.auto()
-    OPTIONS = enum.auto()
+    # OPTIONS = enum.auto()
     MAIN = enum.auto()
     END = enum.auto()
 
@@ -92,14 +92,14 @@ class StateMachine():
                                                           self.background,
                                                           self.bg_color,
                                                           self),
-                            GameStates.OPTIONS: Options(self.font_file,
-                                                        self.font_color,
-                                                        self.button_color,
-                                                        self.padding,
-                                                        self.screen,
-                                                        self.background,
-                                                        self.bg_color,
-                                                        self),
+                            # GameStates.OPTIONS: Options(self.font_file,
+                            #                             self.font_color,
+                            #                             self.button_color,
+                            #                             self.padding,
+                            #                             self.screen,
+                            #                             self.background,
+                            #                             self.bg_color,
+                            #                             self),
                             GameStates.MAIN:Main(self.font_file,
                                                  self.font_color,
                                                  self.button_color,
@@ -148,7 +148,7 @@ class Intro():
         self.PADDING = padding
         self.BUTTONS_DICT = {'New Game': GameStates.MAIN,
                              'Controls': GameStates.CONTROLS,
-                             'Options': GameStates.OPTIONS,
+                             # 'Options': GameStates.OPTIONS,
                              'Quit': None}
         self.BUTTON_LABELS = list(self.BUTTONS_DICT.keys())
 
