@@ -75,7 +75,7 @@ def lerp(min, max, t):
 
 def random_angle_vector(min_angle):
     direction = pygame.math.Vector2(0, 0)
-    while (math.fabs(direction.x) < min_angle and
+    while (math.fabs(direction.x) < min_angle or
            math.fabs(direction.y) < min_angle):
         direction.x = random.uniform(-1.0, 1.0)
         direction.y = random.uniform(-1.0, 1.0)
